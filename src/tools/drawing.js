@@ -37,4 +37,18 @@ export function registerDrawingTools(server) {
     try { return jsonResult(await core.getProperties({ entity_id })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
+
+  server.tool('draw_forecast', 'Draw a price forecast with projected trend lines and target labels', {
+    direction: z.enum(['long', 'short']).describe('Forecast direction: long (up) or short (down)'),
+    entry: z.coerce.number().describe('Entry price level'),
+    targets: z.array(z.object({
+      price: z.coerce.number(),
+      label: z.string().optional().describe('Label for this target (e.g., "TP1 1.0470")'),
+    })).describe('Array of target prices with optional labels'),
+    stop_loss: z.coerce.number().optional().describe('Stop loss price level'),
+    bars_forward: z.coerce.number().optional().describe('Number of bars forward to project (default 30). On 5m = 2.5h, on 1h = 30h, on D = 30 days'),
+  }, async ({ direction, entry, targets, stop_loss, bars_forward }) => {
+    try { return jsonResult(await core.drawForecast({ direction, entry, targets, stop_loss, bars_forward })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
 }

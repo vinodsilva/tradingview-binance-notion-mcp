@@ -45,11 +45,14 @@ export async function waitForChartReady(expectedSymbol = null, expectedTf = null
       continue;
     }
 
-    // Check symbol match if expected
-    if (expectedSymbol && state.currentSymbol && !state.currentSymbol.toUpperCase().includes(expectedSymbol.toUpperCase())) {
-      stableCount = 0;
-      await new Promise(r => setTimeout(r, POLL_INTERVAL));
-      continue;
+    if (expectedSymbol && state.currentSymbol) {
+      const cur = state.currentSymbol.toUpperCase();
+      const exp = expectedSymbol.toUpperCase();
+      if (cur !== exp && !cur.includes(exp) && !exp.includes(cur)) {
+        stableCount = 0;
+        await new Promise(r => setTimeout(r, POLL_INTERVAL));
+        continue;
+      }
     }
 
     // Check bar count stability

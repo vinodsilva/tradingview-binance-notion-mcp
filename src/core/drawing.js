@@ -45,8 +45,8 @@ export async function drawShape({ shape, point, point2, overrides: overridesRaw,
 }
 
 export async function listDrawings() {
-  const apiPath = await getChartApi();
-  const shapes = await evaluate(`
+  const apiPath = await _getChartApi();
+  const shapes = await _evaluate(`
     (function() {
       var api = ${apiPath};
       var all = api.getAllShapes();
@@ -57,8 +57,8 @@ export async function listDrawings() {
 }
 
 export async function getProperties({ entity_id }) {
-  const apiPath = await getChartApi();
-  const result = await evaluate(`
+  const apiPath = await _getChartApi();
+  const result = await _evaluate(`
     (function() {
       var api = ${apiPath};
       var eid = ${safeString(entity_id)};
@@ -86,8 +86,8 @@ export async function getProperties({ entity_id }) {
 }
 
 export async function removeOne({ entity_id }) {
-  const apiPath = await getChartApi();
-  const result = await evaluate(`
+  const apiPath = await _getChartApi();
+  const result = await _evaluate(`
     (function() {
       var api = ${apiPath};
       var eid = ${safeString(entity_id)};
@@ -107,7 +107,71 @@ export async function removeOne({ entity_id }) {
 }
 
 export async function clearAll() {
-  const apiPath = await getChartApi();
-  await evaluate(`${apiPath}.removeAllShapes()`);
+  const apiPath = await _getChartApi();
+  await _evaluate(`${apiPath}.removeAllShapes()`);
   return { success: true, action: 'all_shapes_removed' };
+}
+
+export async function drawForecast({ direction, entry, targets, stop_loss, bars_forward, _deps }) {
+  const { evaluate, getChartApi } = _resolve(_deps);
+  const apiPath = await getChartApi();
+
+  const resolution = await evaluate(`${apiPath}.resolution()`);
+  const visibleRange = await evaluate(`${apiPath}.getVisibleRange()`);
+  const currentTime = visibleRange.to || Math.floor(Date.now() / 1000);
+
+  let secsPerBar = 60;
+  const res = String(resolution);
+  if (res === 'D' || res === '1D') secsPerBar = 86400;
+  else if (res === 'W' || res === '1W') secsPerBar = 604800;
+  else if (res === 'M' || res === '1M') secsPerBar = 2592000;
+  else { const mins = parseInt(res, 10); if (!isNaN(mins)) secsPerBar = mins * 60; }
+
+  const bf = bars_forward || 30;
+  const isLong = direction === 'long';
+  const lineColor = isLong ? '#22ab94' : '#f23645';
+  const textColor = isLong ? '#22ab94' : '#f23645';
+
+  const drawn = [];
+
+  if (stop_loss) {
+    await evaluate(`
+      ${apiPath}.createShape(
+        { time: ${currentTime}, price: ${stop_loss} },
+        { shape: 'horizontal_line', overrides: { linecolor: '#f23645', linewidth: 1, lineStyle: 2 }, text: 'SL ${stop_loss}' }
+      )
+    `);
+    drawn.push({ type: 'stop_loss', price: stop_loss });
+  }
+
+  await evaluate(`
+    ${apiPath}.createShape(
+      { time: ${currentTime}, price: ${entry} },
+      { shape: 'horizontal_line', overrides: { linecolor: ${JSON.stringify(lineColor)}, linewidth: 1, lineStyle: 2 }, text: 'Entry ${entry}' }
+    )
+  `);
+  drawn.push({ type: 'entry', price: entry });
+
+  for (const t of targets) {
+    const futureTime = currentTime + (bf * secsPerBar);
+    const label = t.label || ('TP ' + t.price);
+
+    await evaluate(`
+      ${apiPath}.createShape(
+        { time: ${futureTime}, price: ${t.price} },
+        { shape: 'horizontal_line', overrides: { linecolor: ${JSON.stringify(textColor)}, linewidth: 1, lineStyle: 2 }, text: ${JSON.stringify(label)} }
+      )
+    `);
+
+    await evaluate(`
+      ${apiPath}.createMultipointShape(
+        [{ time: ${currentTime}, price: ${entry} }, { time: ${futureTime}, price: ${t.price} }],
+        { shape: 'trend_line', overrides: { linecolor: ${JSON.stringify(lineColor)}, linewidth: 2, lineStyle: 2 }, text: '' }
+      )
+    `);
+
+    drawn.push({ type: 'target', price: t.price, label, time: futureTime });
+  }
+
+  return { success: true, direction, entry, targets: targets.length, drawn, resolution, bars_forward: bf };
 }
