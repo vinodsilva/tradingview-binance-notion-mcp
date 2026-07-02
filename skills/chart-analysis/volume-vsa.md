@@ -1,6 +1,6 @@
 ---
 name: volume-vsa
-description: Volume Spread Analysis, VSA bar types, Wyckoff volume signatures, hidden divergence detection
+description: Volume Spread Analysis, VSA bar types, Wyckoff volume signatures
 ---
 
 # Volume & VSA — Bar-by-Bar Volume Spread Analysis
@@ -35,12 +35,6 @@ VSA reads three things on every bar: **Spread (range)**, **Close (position withi
 | 8 | Wide | High | Low | Upthrust on poor volume. Fakeout. |
 | 9 | Wide | Low | Low | Downthrust on poor volume. Fakeout. |
 
-### VSA Across Timeframes
-
-1. **W/D**: Identify dominant VSA story (accumulation vs distribution)
-2. **60/15**: Find VSA bars that confirm HTF or warn of change
-3. **5**: Execute when VSA bar type 6 (hidden strength) or 7 (hidden weakness) at key level
-
 ### VSA Divergence (Highest Conviction)
 
 "Effort vs Result" divergence — core VSA signal:
@@ -48,44 +42,7 @@ VSA reads three things on every bar: **Spread (range)**, **Close (position withi
 - **Bullish**: Wide spread + mid/low close + very high volume → selling effort yields no breakdown → hidden buying absorbing → BULLISH
 - **Bearish**: Wide spread + mid/low close + very high volume (up bar) → buying effort yields no breakout → hidden selling absorbing → BEARISH
 
----
-
-## Hidden Divergence Multi-Timeframe Detection
-
-### Divergence Detection Method
-
-Use `data_get_study_values()` for RSI readings at pivot points:
-
-```
-1. chart_set_timeframe(timeframe)
-2. data_get_ohlcv(count=200)  — identify swing pivots
-3. data_get_study_values()   — RSI at each pivot
-4. Compare price vs RSI movement between pivots
-5. Cross-reference volume from OHLCV data
-```
-
-### Regular Divergence (Trend Reversal)
-
-**Bullish:** Price = Lower Low, RSI = Higher Low, Volume declining → selling exhausted
-**Bearish:** Price = Higher High, RSI = Lower High, Volume declining → buying exhausted
-
-### Hidden Divergence (Trend Continuation)
-
-**Bullish Hidden** (uptrend pullback): Price = Higher Low, RSI = Lower Low, Volume declining → pullback weak, trend resumes
-**Bearish Hidden** (downtrend rally): Price = Lower High, RSI = Higher High, Volume declining → rally weak, trend resumes
-
-### Divergence-Volume Confluence
-
-| Divergence | Volume | Conviction |
-|-----------|--------|------------|
-| Regular + Volume declining | Confirmed reversal | 9/10 |
-| Regular + Volume flat | Weak reversal | 5/10 |
-| Regular + Volume expanding | May fail | 3/10 |
-| Hidden + Volume declining on pullback | Confirmed continuation | 10/10 |
-| Hidden + Volume flat | Acceptable | 7/10 |
-| Hidden + Volume expanding | Distribution — may fail | 2/10 |
-
 ### MCP Tools Used
 
-- `data_get_ohlcv(count=200, summary=false)` — bar-by-bar VSA analysis
+- `data_get_ohlcv(count=100, summary=false)` — bar-by-bar VSA analysis
 - `data_get_study_values()` — RSI at pivots for divergence
