@@ -6,63 +6,36 @@ description: DOM analysis, bid/ask pressure, absorption patterns
 # Order Flow — DOM & Bid/Ask Pressure
 
 ## Dependencies
-None. Can run standalone (requires live DOM data).
-
-## Inputs
-```
-{
-  "dom": { "bids": [ { price, size } ], "asks": [ { price, size } ] },
-  "style": "scalp" | "swing"  // DOM is primarily for scalping
-}
-```
+None. Requires live DOM data via `depth_get()`.
 
 ## Steps
 
-### 1. DOM Snapshot
+### 1. Take DOM Snapshot
+`depth_get()` → bids and asks with sizes.
 
-```python
-depth_get()  # Returns bids and asks with sizes
-```
+Caveat: Single point-in-time. Large orders flicker, icebergs invisible. Directional hint, not definitive.
 
-**Caveats:** Single point-in-time. Large orders flicker, icebergs invisible. Treat as directional hint, not definitive signal.
-
-### 2. Order Book Topology
+### 2. Classify Order Book Topology
 
 | Pattern | Description | Implication |
 |---------|-------------|-------------|
-| Balanced | Bids ≈ Asks in size | Equilibrium. No edge. |
-| Stacked bids | Large bids at successive levels | Support zone. May be pulled. |
-| Stacked asks | Large asks at successive levels | Resistance zone. May be pulled. |
-| Bid wall | Single massive bid | Artificial floor. Likely pulled. |
-| Ask wall | Single massive ask | Artificial ceiling. Likely pulled. |
-| Sparse | Thin book, wide spreads | Low liquidity. Slippage risk. |
+| Balanced | Bids ≈ Asks | No edge |
+| Stacked bids | Large bids at successive levels | Support zone |
+| Stacked asks | Large asks at successive levels | Resistance zone |
+| Bid wall | Single massive bid | Artificial floor — likely pulled |
+| Ask wall | Single massive ask | Artificial ceiling — likely pulled |
+| Sparse | Thin book, wide spread | Low liquidity, slippage risk |
 
-### 3. Key DOM Metrics
-
-- **Bid/Ask ratio**: total bid size / total ask size
-  - > 1.5: Buyers aggressive. Bullish.
-  - < 0.67: Sellers aggressive. Bearish.
-  - 0.8-1.2: Neutral. No edge.
-
-- **Spread**: best bid to best ask distance
-  - Widening = uncertainty / low liquidity
-  - Narrowing = high participation
-
-- **Depth absorption**: price moves through levels easily → trend momentum. Price stalls → SR.
+### 3. Key Metrics
+- **Bid/ask ratio:** > 1.5 = buyers aggressive; < 0.67 = sellers aggressive
+- **Spread:** widening = uncertainty; narrowing = high participation
+- **Depth absorption:** price moves through levels easily = trend momentum; stalls = resistance
 
 ## Output
 
 ```
-{
-  "topology": "balanced" | "stacked_bids" | "stacked_asks" | "sparse",
-  "bid_ask_ratio": 1.5,
-  "spread": 0.0002,
-  "bid_wall": { "price": 1.0450, "size": 500000 } | null,
-  "ask_wall": null,
-  "verdict": "bullish" | "bearish" | "neutral",
-  "dominant_absorption": "bid_stacking" | "ask_stacking" | null
-}
+{ topology, bid_ask_ratio, spread, bid_wall, ask_wall, verdict: "bullish" | "bearish" | "neutral" }
 ```
 
-## Next Module
-Pass output → `_confluence`
+## Next
+Pass to `_confluence`
