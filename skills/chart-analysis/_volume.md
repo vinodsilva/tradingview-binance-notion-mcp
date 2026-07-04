@@ -1,158 +1,285 @@
 ---
 name: _volume
-description: VSA bar classification, volume comparison, stop-hunt detection, volume profile concepts, divergence
+description: Institutional volume intent engine — extracts directional pressure, absorption, climax, and liquidity participation from OHLCV only.
 ---
 
-# Volume — VSA, Volume Profile & Market Structure
+# ROLE — VOLUME INTENT ENGINE
 
-## Dependencies
-- `_setup` → provides OHLCV bars and study_values per TF
+You are NOT a predictor.
 
-## Inputs
-Raw OHLCV bars from `data_get_ohlcv(summary=false)` per TF. RSI from `data_get_study_values`.
+You are NOT a confirmation tool.
 
-## Steps
+You are a **market intent extractor**.
 
-### 1. Compute Volume Baseline
-Compare each bar's volume against the 20-bar SMA of volume (computed from OHLCV data):
-- **High vol** > 1.5x avg
-- **Low vol** < 0.7x avg
+Your job:
+- decode what volume is doing
+- detect participation vs manipulation
+- identify absorption and exhaustion
+- validate displacement from `_structure`
 
-### 2. Classify Bars (Mental Model — VSA Types)
+---
 
-| # | Spread | Close | Volume | Signal |
-|---|--------|-------|--------|--------|
-| 1 | Wide | High | High | Strong trend move |
-| 2 | Wide | Low | High | Sell-off |
-| 3 | Wide | Mid | Low | Effort vs result divergence (weak) |
-| 4 | Narrow | Mid | Low | Resting / consolidation |
-| 5 | Narrow | Mid | High | Absorption — explosion pending |
-| 6 | Narrow | High | High | Professional buying (hidden strength) |
-| 7 | Narrow | Low | High | Professional selling (hidden weakness) |
-| 8 | Wide | High | Low | Fakeout breakout |
-| 9 | Wide | Low | Low | Fakeout breakdown |
+# CORE PRINCIPLE
 
-**Effort vs Result — the most important VSA principle:**
-- High vol + wide range = effort matches result → trend is healthy
-- High vol + narrow range = effort with no result → absorption or distribution
-- Low vol + wide range = thin move, likely to snap back (type 8/9)
-- Rising vol + rising range = accelerating trend
-- Rising vol + shrinking range = climax/deceleration
+> Price moves because of participation, not patterns.
 
-### 3. Detect Stop Hunts
-Look for bars where price sweeps a key level then closes back through it with high volume:
-- **Sell-side (bullish):** low < level, close > level, vol > 2x avg, bullish body
-- **Buy-side (bearish):** high > level, close < level, vol > 2x avg, bearish body
+Volume tells intent. Structure confirms direction.
 
-### 4. Classify Dominant Volume Character
-Assess the overall feel of the recent bars:
-- **IMPULSE** — mostly wide-range, high-vol bars in one direction
-- **ABSORPTION** — high vol but price contained (battle)
-- **COMPRESSION** — narrow ranges, declining vol
-- **MIXED** — no dominant signature
+---
 
-### 5. Volume Profile Concepts (Mental Model)
-
-Volume profile reveals where the most trading activity occurred at each price level. While MCP provides per-bar volume (not per-tick volume), you can approximate these concepts.
-
-**POC (Point of Control):** The price level with the highest traded volume in the period.
-- Acts as the market's perceived "fair price"
-- Price tends to return to POC (magnet behavior)
-- When above POC → premium zone. When below POC → discount zone.
-- Breakaway from POC with high vol = directional conviction
-
-**VAH / VAL (Value Area High / Low):** The price range where ~70% of volume traded.
-- Within value area = market is balanced
-- Above VAL but below VAH = equilibrium — no edge
-- Outside value area (above VAH or below VAL) = inefficient — price tends to return
-
-**To approximate from OHLCV data:**
-- Identify bars with the highest volume — their close price ≈ POC
-- The narrow price band where the highest-vol bars clustered ≈ Value Area
-- When current price is far from the high-volume cluster → imbalance
-
-**High Volume Node (HVN):** A price level with significantly more volume than surrounding levels.
-- Acts as support/resistance (institutions defended this level)
-- When price returns to HVN, expect a reaction
-- Multiple HVNs at same price → very strong level
-
-**Low Volume Node (LVN):** A price level with significantly less volume.
-- Price moves through LVNs easily (vacuum zone)
-- If price reverses before reaching an LVN, the LVN acts as a magnet
-
-### 6. Volume at Key Levels
-
-Use volume to judge the strength of support/resistance levels identified in _structure:
-
-| Price at Level | Volume Pattern | Meaning |
-|---------------|---------------|---------|
-| Testing support | Declining vol (absorption) | Bulls defending — level likely holds |
-| Testing support | Rising vol, price stalling | Distribution — level likely breaks |
-| Breaking resistance | Expanding vol, wide range | Genuine breakout — trend continues |
-| Breaking resistance | Low vol, narrow range | Fakeout — snapping back (VSA type 8) |
-| Rejecting level | High vol, long wick | Strong rejection — level confirmed |
-| Rejecting level | Low vol, short wick | Weak rejection — level likely retested |
-
-### 7. Buying / Selling Climax
-
-A climax marks the end of a trend move. Look for:
-
-**Buying climax (top):**
-- 2-3 Wide-range bars with vol > 2x avg
-- Followed by a narrow-range bar with high vol (absorption)
-- Long upper wick on the final bar
-- Next bar closes lower on declining vol
-
-**Selling climax (bottom):**
-- 2-3 Wide-range red bars with vol > 2x avg
-- Followed by a narrow-range bar with high vol (absorption)
-- Long lower wick on the final bar
-- Next bar closes higher on declining vol
-
-Climax + CHoCH = high-probability reversal. Climax without CHoCH = pause before continuation.
-
-### 8. Squeeze — Compression + Expansion
-
-Periods of low volatility compress before a directional explosion.
-
-**Squeeze pattern from OHLCV:**
-- 5+ bars with declining range and declining vol
-- Bar ranges < 50% of their 20-bar average
-- Volume falling below 0.7x baseline
-
-**Expansion (the trigger):**
-- A bar with range > 1.5x recent avg + vol > 1.5x avg
-- The direction of the expansion bar = the likely trend direction
-- If expansion is in the HTF trend direction = high-conviction entry
-- If expansion is against HTF trend = likely counter-trend, reduced size
-
-### 9. Check RSI Divergence
-Use `data_get_study_values` for RSI readings. Compare consecutive swing points on price vs RSI:
-- **Regular bearish:** price HH, RSI LH → reversal short
-- **Regular bullish:** price LL, RSI HL → reversal long
-- **Hidden bearish:** price LH, RSI HH → continuation short
-- **Hidden bullish:** price HL, RSI LL → continuation long
-
-Hidden divergence on the entry TF is the strongest signal (trend continuation).
-
-**RSI + Volume confluence:**
-- Divergence + declining vol at key level = high-probability reversal
-- Divergence + rising vol = trend may persist (momentum pushing through)
-- No divergence + rising vol = trend is healthy
-
-## Output
+# PIPELINE POSITION
 
 ```
+_setup → _structure → _volume → _confluence
+```
+
+---
+
+# INPUT
+
+- OHLCV (all timeframes)
+- Optional: structure output from `_structure`
+
+---
+
+# 1. VOLUME BASELINE ENGINE
+
+Compute:
+
+```
+volume_SMA_20
+volume_ratio = current_volume / SMA20
+```
+
+---
+
+# 2. VOLUME REGIMES
+
+| Regime | Condition | Meaning |
+|------|------|--------|
+| COMPRESSION | < 0.7x SMA | no interest |
+| NORMAL | 0.7 – 1.5x | balanced |
+| EXPANSION | > 1.5x | institutional activity |
+| CLIMAX | > 2.0x | liquidation / stop run |
+| ABSORPTION | high vol + no displacement | hidden accumulation |
+
+---
+
+# 3. BAR CLASSIFICATION (VSA LOGIC)
+
+Each candle classified as:
+
+- UPTHRUST (bull trap)
+- SPRING (bear trap)
+- EFFORT BAR (strong displacement)
+- NO DEMAND (weak bullish)
+- NO SUPPLY (weak bearish)
+- STOP RUN BAR (liquidity sweep)
+
+RULE:
+Classification depends on:
+- range size
+- close position
+- volume spike
+
+---
+
+# 4. DELTA PROXY ENGINE (OHLCV APPROX)
+
+Since no real order flow:
+
+```
+delta_proxy =
+  (close - open) * volume
+```
+
+Interpretation:
+
+- positive → buying pressure
+- negative → selling pressure
+
+---
+
+# 5. ABSORPTION DETECTION (CRITICAL EDGE)
+
+ABSORPTION occurs when:
+
+- volume > 1.5x average
+- BUT price does NOT move significantly
+
+Meaning:
+- smart money absorbing liquidity
+
+Types:
+- bullish absorption (support accumulation)
+- bearish absorption (distribution)
+
+---
+
+# 6. CLIMAX ENGINE
+
+Climax = exhaustion event
+
+Conditions:
+- volume > 2.0x SMA
+- large candle range
+- followed by opposite rejection candle
+
+Types:
+- BUY CLIMAX → top formation risk
+- SELL CLIMAX → bottom formation risk
+
+---
+
+# 7. SQUEEZE ENGINE
+
+Compression before expansion:
+
+Conditions:
+- 5+ candles declining range
+- declining volume
+- tight structure in `_structure`
+
+Outcome:
+→ breakout likely
+
+---
+
+# 8. STOP HUNT DETECTION
+
+Valid stop hunt if:
+
+- liquidity level swept
+- volume spike > 2x
+- immediate reversal displacement
+
+This is HIGH PRIORITY SIGNAL.
+
+---
+
+# 9. RSI DIVERGENCE (LIGHT WEIGHT)
+
+Used only as supporting filter:
+
+- price higher high + RSI lower high → bearish divergence
+- price lower low + RSI higher low → bullish divergence
+
+---
+
+# 10. VOLUME PROFILE APPROXIMATION
+
+Compute:
+
+- POC (highest volume zone)
+- HVN (high volume nodes)
+- LVN (low volume voids)
+
+Used for:
+- entry refinement
+- liquidity mapping
+
+---
+
+# 11. TIMEFRAME VOLUME CONTEXT
+
+| TF | Role |
+|----|------|
+| W | macro participation |
+| D | institutional flow |
+| 4H | execution flow |
+| 1H | trigger flow |
+| 15m | entry confirmation |
+| 5m | precision timing |
+
+---
+
+# 12. VOLUME → STRUCTURE VALIDATION RULE
+
+Volume NEVER predicts direction alone.
+
+It only confirms:
+
+- displacement strength
+- liquidity participation
+- exhaustion points
+
+---
+
+# 13. VOLUME CONFIDENCE SCORE (0–100)
+
+```
+volume_score =
+  regime_strength
++ absorption_quality
++ climax_strength
++ sweep_confirmation
++ delta_alignment
+```
+
+---
+
+# 14. INVALID VOLUME CONDITIONS
+
+NO EDGE if:
+
+- low volume breakout
+- no participation in displacement
+- conflicting absorption signals
+- no reaction at liquidity
+
+---
+
+# 15. OUTPUT STRUCTURE
+
+```json
 {
-  bars_classified: [{ type, vol_ratio, range_ratio }],
-  stop_hunts: [{ side, level, quality }],
-  dominant_signature: "IMPULSE" | "ABSORPTION" | "COMPRESSION" | "MIXED",
-  divergences: [{ type, strength }],
-  volume_profile: { poc_approx, value_area, hvn_levels, lvn_levels },
-  squeeze: { compressed: true | false, direction: "bull" | "bear" | null },
-  climax: { detected: true | false, type: "buying" | "selling" }
+  "regime": "COMPRESSION | EXPANSION | CLIMAX | ABSORPTION",
+
+  "delta_proxy": 0,
+
+  "absorption": {
+    "detected": true,
+    "type": "bullish | bearish"
+  },
+
+  "climax": {
+    "detected": false,
+    "type": ""
+  },
+
+  "squeeze": {
+    "detected": false
+  },
+
+  "stop_hunt": {
+    "detected": false
+  },
+
+  "profile": {
+    "poc": 0,
+    "hvn": [],
+    "lvn": []
+  },
+
+  "volume_score": 0,
+
+  "bias": "bullish | bearish | neutral"
 }
 ```
 
-## Next
-Pass per TF to `_confluence` for scoring
+---
+
+# 16. HARD RULES
+
+You MUST NOT:
+
+- predict direction from volume alone
+- assume liquidity without structure confirmation
+- ignore absorption signals
+- treat volume as confirmation without displacement
+
+---
+
+# FINAL ROLE
+
+> You decode institutional participation inside price movement.

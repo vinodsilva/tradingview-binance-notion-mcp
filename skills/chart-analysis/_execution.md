@@ -8,14 +8,33 @@ description: Entry triggers, trade management, pyramiding, exits, chart annotati
 ## Dependencies
 - `_sizing` → entry, stop, position size, direction
 - `_structure` → trend (invalidation), OBs, FVGs
+- `_confluence` → StEngine cross-validation flag
+
+## StEngine Strategy Alignment
+
+The StEngine Pine Script has its own built-in trade management. When the strategy fires a signal:
+
+| Parameter | Strategy Default | MCP Override |
+|-----------|-----------------|--------------|
+| Stop Loss | 2x ATR from entry | Can override via `indicator_set_inputs(useSL=false)` if structural stop differs |
+| Take Profit | 3x ATR from entry | Can override if structural TP further |
+| Trailing Stop | 2x ATR trail (optional) | MCP trail is 1 ATR — more aggressive |
+| Partial TP | 50% at 2x ATR (optional) | MCP is 25% at 1R, 25% at 2R — phased |
+| Flip on opposite | YES (strategy built-in) | Same |
+| CHoCH exit | YES (strategy built-in) | Same |
+
+**If both agree** — execute via MCP for manual flexibility, or let the strategy auto-execute
+**If MCP overrides strategy** — disable strategy's built-in SL/TP via inputs and use MCP-managed stops
 
 ## Steps
 
 ### 1. Entry Checklist (All Must Pass)
 
-**Long:** HTF trend bullish OR asymmetry 3:1+, price swept sell-side liquidity and reversed, bullish vol bar (close > open, >1.5x vol), price at/above VWAP, RSI not above 80, invalidation level known.
+**EV pre-check:** EV_ratio must be > 0.3. If EV_ratio <= 0.3 → NO ENTRY regardless of other conditions.
 
-**Short:** HTF trend bearish OR asymmetry 3:1+, price swept buy-side liquidity and rejected, bearish vol bar (close < open, >1.5x vol), price at/below VWAP, RSI not below 20, invalidation level known.
+**Long:** HTF trend bullish OR asymmetry 3:1+, price swept sell-side liquidity and reversed, bullish vol bar (close > open, >1.5x vol), price at/above VWAP, RSI not above 80, invalidation level known, effective_score >= 70.
+
+**Short:** HTF trend bearish OR asymmetry 3:1+, price swept buy-side liquidity and rejected, bearish vol bar (close < open, >1.5x vol), price at/below VWAP, RSI not below 20, invalidation level known, effective_score >= 70.
 
 **Turtle rule:** All conditions met → enter. Any missing → pass. Enter at market or limit on retest. Never chase > 0.5x ATR from trigger.
 

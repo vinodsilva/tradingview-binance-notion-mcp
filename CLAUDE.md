@@ -24,7 +24,7 @@ Use `study_filter` parameter to target a specific indicator by name substring (e
 - `data_get_ohlcv` without summary → all bars (use `count` to limit, default 100)
 - `quote_get` → single latest price snapshot
 
-### "Analyze my chart" (full report workflow)
+### "Analyze my chart" (quick report)
 1. `quote_get` → current price
 2. `data_get_study_values` → all indicator readings
 3. `data_get_pine_lines` → key price levels from custom indicators
@@ -32,6 +32,16 @@ Use `study_filter` parameter to target a specific indicator by name substring (e
 5. `data_get_pine_tables` → session stats, analytics tables
 6. `data_get_ohlcv` with `summary: true` → price action summary
 7. `capture_screenshot` → visual confirmation
+
+### "Full trading analysis" (chart-analysis workflow)
+Run the complete 6-step pipeline: acquire data per TF → volume analysis → structure analysis → market nature classification + trade generation → sizing → execution + report.
+
+**Trigger phrases** — say any of these to start the workflow:
+- "run full analysis on ES1!"
+- "analyze the current chart"
+- "full chart analysis on BTCUSD"
+
+Read `skills/chart-analysis/SKILL.md` and follow it step by step. This is the primary workflow for any directional trade decision. Modules `_volume.md`, `_confluence.md`, `_sizing.md`, `_execution.md`, `_report.md` provide detailed reference for each step.
 
 ### "Change the chart"
 - `chart_set_symbol` → switch ticker (e.g., "AAPL", "ES1!", "NYMEX:CL1!")
