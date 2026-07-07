@@ -38,6 +38,22 @@ export function registerDrawingTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
+  server.tool('draw_position', 'Draw a Long/Short Position with entry, stop loss, and targets using native TradingView position tool', {
+    direction: z.enum(['long', 'short']).describe('Position direction'),
+    entry_time: z.coerce.number().describe('Entry time (unix timestamp)'),
+    entry_price: z.coerce.number().describe('Entry price'),
+    stop_loss: z.coerce.number().describe('Stop loss price'),
+    targets: z.array(z.object({
+      price: z.coerce.number(),
+      label: z.string().optional(),
+    })).optional().describe('Target price levels'),
+    text: z.string().optional().describe('Label text for the position'),
+    quantity: z.coerce.number().optional().describe('Position quantity (default 1)'),
+  }, async ({ direction, entry_time, entry_price, stop_loss, targets, text, quantity }) => {
+    try { return jsonResult(await core.drawPosition({ direction, entry_time, entry_price, stop_loss, targets, text, quantity })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
+
   server.tool('draw_forecast', 'Draw a price forecast with projected trend lines and target labels', {
     direction: z.enum(['long', 'short']).describe('Forecast direction: long (up) or short (down)'),
     entry: z.coerce.number().describe('Entry price level'),

@@ -1,6 +1,6 @@
 # TradingView MCP — Claude Instructions
 
-68 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
+80 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222), plus Telegram notification tools.
 
 ## Decision Tree — Which Tool When
 
@@ -43,6 +43,17 @@ Run the complete 6-step pipeline: acquire data per TF → volume analysis → st
 
 Read `skills/chart-analysis/SKILL.md` and follow it step by step. This is the primary workflow for any directional trade decision. Modules `_volume.md`, `_confluence.md`, `_sizing.md`, `_execution.md`, `_report.md` provide detailed reference for each step.
 
+### "Use an agent" (role-based execution)
+Agents (`agents/`) are role definitions — they tell me *who to be* and *what tools to use*. Skills (`skills/`) are the detailed *how-to* reference. Use agents by saying:
+- "Act as **chart-analyst** and analyze ES1!" → full institutional pipeline (10-stage)
+- "Act as **coin-scout** on Binance" → momentum scan for explosive crypto moves
+- "Act as **market-scanner** on NQ, ES, YM" → multi-symbol scan for setups
+- "Act as **performance-analyst**" → strategy backtest report
+- "Act as **replay-coach**" → interactive replay mode practice
+- "Act as **pine-coder**" → Pine Script dev loop (write → compile → fix)
+
+Each agent reads its corresponding skill for the step-by-step workflow. Agents directory: `agents/chart-analyst.md`, `agents/coin-scout.md`, `agents/market-scanner.md`, `agents/performance-analyst.md`, `agents/replay-coach.md`, `agents/pine-coder.md`.
+
 ### "Change the chart"
 - `chart_set_symbol` → switch ticker (e.g., "AAPL", "ES1!", "NYMEX:CL1!")
 - `chart_set_timeframe` → switch resolution (e.g., "1", "5", "15", "60", "D", "W")
@@ -82,6 +93,12 @@ Read `skills/chart-analysis/SKILL.md` and follow it step by step. This is the pr
 - `alert_create` → set price alert (condition: "crossing", "greater_than", "less_than")
 - `alert_list` → view active alerts
 - `alert_delete` → remove alerts
+
+### "Send updates to Telegram"
+Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` env vars.
+- `telegram_send_message` → send a text report/analysis to Telegram
+- `telegram_send_photo` → send screenshot + trade reasoning as photo with caption
+- Use after `capture_screenshot` to share chart analysis to your group/channel
 
 ### "Navigate the UI"
 - `ui_open_panel` → open/close pine-editor, strategy-tester, watchlist, alerts, trading
@@ -129,6 +146,7 @@ These tools can return large payloads. Follow these rules to avoid context bloat
 - Screenshots save to `screenshots/` directory with timestamps
 - OHLCV capped at 500 bars, trades at 20 per request
 - Pine labels capped at 50 per study by default (pass `max_labels` to override)
+- Telegram tools require `TELEGRAM_BOT_TOKEN` (from @BotFather) and `TELEGRAM_CHAT_ID` (comma-separated for multiple chats) env vars
 
 ## Architecture
 

@@ -384,7 +384,63 @@ INVALIDATIONS
 
 ---
 
-# 15. CRITICAL RULE
+# 15. TELEGRAM SIGNAL OUTPUT
+
+## MCP TOOLS
+
+Use these MCP tools to push the report to Telegram:
+- `telegram_send_photo(photo_path, caption, parse_mode="HTML")` — sends chart screenshot + trade report
+- `telegram_send_message(text, parse_mode="HTML")` — sends text-only update
+
+## WORKFLOW
+
+After execution produces `screenshot_path`:
+
+```
+1. Build HTML caption from report data
+2. telegram_send_photo(photo_path=screenshot_path, caption=html_caption)
+```
+
+## HTML CAPTION TEMPLATE
+
+This is the `caption` string passed to `telegram_send_photo`. Use HTML formatting — Telegram supports `<b>`, `<i>`, `<code>`, `<pre>`, and line breaks.
+
+```
+<b>{SYMBOL} — {DIRECTION} SETUP</b>
+<b>Grade:</b> {GRADE}  |  <b>Win Prob:</b> {WIN_PROB}%  |  <b>RR:</b> 1:{RR}
+
+<b>MARKET STATE</b>
+HTF Bias: {BIAS}  |  Session: {SESSION}  |  Phase: {PHASE}
+
+<b>KEY LEVELS</b>
+Resistance: {PRICE} ({SOURCE})
+Current:    {CURRENT}
+Support:    {PRICE} ({SOURCE})
+
+<b>ENTRY ZONE:</b> {LOW} - {HIGH}
+<b>TP1:</b> {PRICE} (1R)  |  <b>TP2:</b> {PRICE} (2R)  |  <b>TP3:</b> {PRICE} (3R+)
+<b>STOP:</b> {PRICE}
+
+<b>REASONS</b>
+{• reason 1
+• reason 2
+• reason 3}
+
+<b>INVALIDATIONS</b>
+{• invalidation 1
+• invalidation 2}
+```
+
+## RULES
+
+- Always use `parse_mode="HTML"` — never MarkdownV2 (special chars break it)
+- ALWAYS send the screenshot + caption together via `telegram_send_photo` — text-only is for non-trade updates
+- Caption must be concise: Telegram has a 1024-char caption limit for photos. Prioritize: direction, grade, entry, TP, SL, top 3 reasons
+- If the report is WAIT / NO_TRADE, use `telegram_send_message` instead (no screenshot needed)
+
+---
+
+# 16. CRITICAL RULE
 
 You must NEVER:
 - modify upstream decision

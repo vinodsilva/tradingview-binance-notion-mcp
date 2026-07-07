@@ -3,12 +3,12 @@ name: _execution
 description: Entry triggers, trade management, pyramiding, exits, chart annotations
 ---
 
-# Execution — Entry & Trade Management
+# Execution - Entry & Trade Management
 
 ## Dependencies
-- `_sizing` → entry, stop, position size, direction
-- `_structure` → trend (invalidation), OBs, FVGs
-- `_confluence` → StEngine cross-validation flag
+- `_sizing` -> entry, stop, position size, direction
+- `_structure` -> trend (invalidation), OBs, FVGs
+- `_confluence` -> StEngine cross-validation flag
 
 ## StEngine Strategy Alignment
 
@@ -18,25 +18,25 @@ The StEngine Pine Script has its own built-in trade management. When the strateg
 |-----------|-----------------|--------------|
 | Stop Loss | 2x ATR from entry | Can override via `indicator_set_inputs(useSL=false)` if structural stop differs |
 | Take Profit | 3x ATR from entry | Can override if structural TP further |
-| Trailing Stop | 2x ATR trail (optional) | MCP trail is 1 ATR — more aggressive |
-| Partial TP | 50% at 2x ATR (optional) | MCP is 25% at 1R, 25% at 2R — phased |
+| Trailing Stop | 2x ATR trail (optional) | MCP trail is 1 ATR - more aggressive |
+| Partial TP | 50% at 2x ATR (optional) | MCP is 25% at 1R, 25% at 2R - phased |
 | Flip on opposite | YES (strategy built-in) | Same |
 | CHoCH exit | YES (strategy built-in) | Same |
 
-**If both agree** — execute via MCP for manual flexibility, or let the strategy auto-execute
-**If MCP overrides strategy** — disable strategy's built-in SL/TP via inputs and use MCP-managed stops
+**If both agree** - execute via MCP for manual flexibility, or let the strategy auto-execute
+**If MCP overrides strategy** - disable strategy's built-in SL/TP via inputs and use MCP-managed stops
 
 ## Steps
 
 ### 1. Entry Checklist (All Must Pass)
 
-**EV pre-check:** EV_ratio must be > 0.3. If EV_ratio <= 0.3 → NO ENTRY regardless of other conditions.
+**EV pre-check:** EV_ratio must be > 0.3. If EV_ratio <= 0.3 -> NO ENTRY regardless of other conditions.
 
 **Long:** HTF trend bullish OR inverse sweep with HTF liquidity confirmed OR asymmetry 3:1+, price swept sell-side liquidity and reversed, bullish vol bar (close > open, >1.5x vol), price at/above VWAP, RSI not above 80, invalidation level known, effective_score >= 70.
 
 **Short:** HTF trend bearish OR inverse sweep with HTF liquidity confirmed OR asymmetry 3:1+, price swept buy-side liquidity and rejected, bearish vol bar (close < open, >1.5x vol), price at/below VWAP, RSI not below 20, invalidation level known, effective_score >= 70.
 
-**Turtle rule:** All conditions met → enter. Any missing → pass. Enter at market or limit on retest. Never chase > 0.5x ATR from trigger.
+**Turtle rule:** All conditions met -> enter. Any missing -> pass. Enter at market or limit on retest. Never chase > 0.5x ATR from trigger.
 
 ### 2. Pyramiding (Livermore)
 | Price moved | Add |
@@ -51,21 +51,21 @@ Never add if price hasn't moved in your favor. Tighter stop on each add.
 
 | Level | Action |
 |-------|--------|
-| +1R | Sell 25% → move stop to breakeven |
-| +2R | Sell 25% → trail stop by 1 ATR |
-| +3R | Sell 25% → trail stop by 1.5 ATR |
+| +1R | Sell 25% -> move stop to breakeven |
+| +2R | Sell 25% -> trail stop by 1 ATR |
+| +3R | Sell 25% -> trail stop by 1.5 ATR |
 | Runner | Hold 25% with trailing stop |
 
 ### 4. Trailing Stop
-Trail at previous swing low/high (structure-based). Never loosen — only tighten.
+Trail at previous swing low/high (structure-based). Never loosen - only tighten.
 
 ### 5. Time Stop (Seykota)
-If price hasn't moved 0.5x ATR in your favor within 5 bars on entry TF → exit.
+If price hasn't moved 0.5x ATR in your favor within 5 bars on entry TF -> exit.
 
 ### 6. Invalidation Monitoring
 Check every bar:
-- Trend flips (UP→DOWN for long, DOWN→UP for short) → EXIT immediately
-- Structure score collapses (sustained break of key OB/FVG) → EXIT
+- Trend flips (UP->DOWN for long, DOWN->UP for short) -> EXIT immediately
+- Structure score collapses (sustained break of key OB/FVG) -> EXIT
 
 ### 7. Exit Matrix
 
@@ -92,7 +92,7 @@ Targets are derived from structure and patterns, NOT fib extensions alone. Prior
 | 5 | Previous swing high/low | HH, LH, LL, HL from `_structure` |
 | 6 | Pattern completion | Wyckoff target, Elliott Wave 3/5 completion, measured move (AB=CD) |
 | 7 | Fib extension | 1.272 / 1.618 (fallback when structural targets are far or absent) |
-| 8 | ATR-based | Entry ± 3x ATR (last resort, only if no structural target exists) |
+| 8 | ATR-based | Entry +/- 3x ATR (last resort, only if no structural target exists) |
 
 **TP assignment:**
 - TP1 = nearest structural target (conservative take-profit, ~1-2R)
@@ -114,46 +114,75 @@ rr_tp3 = abs(tp3 - entry) / abs(stop - entry)
 When chart-analysis runs, ALL of the following MUST be drawn on the chart automatically using `draw_shape`. This is required, not optional.
 
 **Setup:**
-1. `draw_clear()` — remove all existing drawings first (clean slate)
+1. `draw_clear()` - remove all existing drawings first (clean slate)
 
-**Draw entry level:**
+**Label overlap prevention:**
+All horizontal line labels must use time offsets so they don't stack on top of each other. Calculate `bar_secs` from resolution:
+- 1m=60, 5m=300, 15m=900, 1h=3600, 4h=14400, D=86400
+- `offset = resolution_in_seconds * 2` (2 bars between each label)
+
+```
+bar_secs = tf_to_seconds(resolution)  // e.g., 15m = 900
+spacing = bar_secs * 2                // 1800 for 15m
+sweep_time = now - spacing * 2        // furthest left
+sl_time = now - spacing               // left of entry
+entry_time = now                      // center
+tp1_time = now + spacing              // right of entry
+tp2_time = now + spacing * 2          // further right
+tp3_time = now + spacing * 3          // furthest right
+```
+
+**Draw sweep level (left side):**
 ```
 draw_shape(
   shape: "horizontal_line",
-  point: { time: now, price: entry_price },
-  overrides: '{"linecolor": "#22c55e", "linewidth": 2, "linestyle": 2}',  // green dashed for long
-  text: "ENTRY"
+  point: { time: sweep_time, price: sweep_level },
+  overrides: '{"linecolor": "#eab308", "linewidth": 1, "linestyle": 2}',
+  text: "SWEEP"
 )
 ```
 
-**Draw stop loss:**
+**Draw stop loss (left of entry):**
 ```
 draw_shape(
   shape: "horizontal_line",
-  point: { time: now, price: stop_price },
-  overrides: '{"linecolor": "#ef4444", "linewidth": 2, "linestyle": 0}',  // red solid
+  point: { time: sl_time, price: stop_price },
+  overrides: '{"linecolor": "#ef4444", "linewidth": 2, "linestyle": 0}',
   text: "SL"
 )
 ```
 
-**Draw TP1 / TP2 / TP3:**
+**Draw entry level (center):**
 ```
 draw_shape(
   shape: "horizontal_line",
-  point: { time: now, price: tp1_price },
-  overrides: '{"linecolor": "#22c55e", "linewidth": 2, "linestyle": 2}',  // green dashed
-  text: "+1R"  // or "TP1"
+  point: { time: entry_time, price: entry_price },
+  overrides: '{"linecolor": "#22c55e", "linewidth": 2, "linestyle": 2}',
+  text: "ENTRY"
 )
-// repeat for tp2 ("+2R") and tp3 ("+3R")
 ```
 
-**Draw sweep levels (liquidity):**
+**Draw TP levels (right side, spread out):**
 ```
 draw_shape(
   shape: "horizontal_line",
-  point: { time: now, price: sweep_level },
-  overrides: '{"linecolor": "#eab308", "linewidth": 1, "linestyle": 2}',  // yellow dashed
-  text: "SWEEP"
+  point: { time: tp1_time, price: tp1_price },
+  overrides: '{"linecolor": "#22c55e", "linewidth": 2, "linestyle": 2}',
+  text: "+1R"
+)
+
+draw_shape(
+  shape: "horizontal_line",
+  point: { time: tp2_time, price: tp2_price },
+  overrides: '{"linecolor": "#22c55e", "linewidth": 2, "linestyle": 2}',
+  text: "+2R"
+)
+
+draw_shape(
+  shape: "horizontal_line",
+  point: { time: tp3_time, price: tp3_price },
+  overrides: '{"linecolor": "#22c55e", "linewidth": 2, "linestyle": 2}',
+  text: "+3R"
 )
 ```
 

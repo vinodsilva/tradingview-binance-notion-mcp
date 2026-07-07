@@ -1,10 +1,10 @@
 /**
  * Core drawing logic.
  */
-import { evaluate as _evaluate, getChartApi as _getChartApi, safeString, requireFinite } from '../connection.js';
+import { evaluate as _evaluate, evaluateAsync as _evaluateAsync, getChartApi as _getChartApi, safeString, requireFinite } from '../connection.js';
 
 function _resolve(deps) {
-  return { evaluate: deps?.evaluate || _evaluate, getChartApi: deps?.getChartApi || _getChartApi };
+  return { evaluate: deps?.evaluate || _evaluate, evaluateAsync: deps?.evaluateAsync || _evaluateAsync, getChartApi: deps?.getChartApi || _getChartApi };
 }
 
 export async function drawShape({ shape, point, point2, overrides: overridesRaw, text, _deps }) {
@@ -174,4 +174,43 @@ export async function drawForecast({ direction, entry, targets, stop_loss, bars_
   }
 
   return { success: true, direction, entry, targets: targets.length, drawn, resolution, bars_forward: bf };
+}
+
+export async function drawPosition({ direction, entry_time, entry_price, stop_loss, targets, text, quantity, _deps }) {
+  const { evaluate, evaluateAsync, getChartApi } = _resolve(_deps);
+  const apiPath = await getChartApi();
+  const isLong = direction === 'long';
+  const lineColor = isLong ? '#22ab94' : '#f23645';
+
+  await evaluate(`
+    ${apiPath}.createPositionLine({
+      text: ${safeString(text || (isLong ? 'LONG' : 'SHORT'))},
+      direction: ${safeString(direction)},
+      entryPrice: ${entry_price},
+      entryTime: ${entry_time},
+      stopLoss: ${stop_loss},
+      takeProfit: ${targets && targets.length > 0 ? targets[0].price : 0},
+      quantity: ${quantity || 1}
+    })
+  `);
+
+  await new Promise(r => setTimeout(r, 300));
+
+  if (targets && targets.length > 1) {
+    for (let i = 1; i < targets.length; i++) {
+      const t = targets[i];
+      await evaluate(`
+        ${apiPath}.createShape(
+          { time: ${entry_time}, price: ${t.price} },
+          { shape: 'horizontal_line', overrides: { linecolor: ${JSON.stringify(lineColor)}, linewidth: 2, linestyle: 2 }, text: ${JSON.stringify(t.label || 'TP' + (i + 1) + ' ' + t.price)} }
+        )
+      `);
+    }
+  }
+
+  return {
+    success: true, direction, entry_price, stop_loss,
+    targets_count: targets?.length || 0,
+    target_prices: (targets || []).map(t => t.price),
+  };
 }

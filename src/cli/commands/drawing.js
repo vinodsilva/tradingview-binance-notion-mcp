@@ -33,6 +33,30 @@ register('draw', {
       description: 'Remove a drawing by entity ID',
       handler: (opts, positionals) => core.removeOne({ entity_id: positionals[0] }),
     }],
+    ['position', {
+      description: 'Draw Long/Short Position with entry, SL, and targets',
+      options: {
+        direction: { type: 'string', short: 'd', description: 'Direction: long or short' },
+        entry_time: { type: 'string', short: 't', description: 'Entry time (unix timestamp)' },
+        entry_price: { type: 'string', short: 'p', description: 'Entry price' },
+        stop_loss: { type: 'string', short: 's', description: 'Stop loss price' },
+        targets: { type: 'string', description: 'Comma-separated target prices (e.g. "1.05,1.06,1.07")' },
+        text: { type: 'string', description: 'Position label text' },
+        quantity: { type: 'string', description: 'Position quantity (default 1)' },
+      },
+      handler: (opts) => {
+        const targets = opts.targets ? opts.targets.split(',').map(p => ({ price: Number(p.trim()) })) : [];
+        return core.drawPosition({
+          direction: opts.direction || 'long',
+          entry_time: Number(opts.entry_time),
+          entry_price: Number(opts.entry_price),
+          stop_loss: Number(opts.stop_loss),
+          targets,
+          text: opts.text,
+          quantity: opts.quantity ? Number(opts.quantity) : undefined,
+        });
+      },
+    }],
     ['clear', {
       description: 'Remove all drawings',
       handler: () => core.clearAll(),
