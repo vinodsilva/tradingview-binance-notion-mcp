@@ -36,7 +36,7 @@ You NEVER change trade direction.
 # PIPELINE POSITION
 
 ```
-_setup → _volume → _structure → _confluence → _sizing → _execution → _report
+_setup → _volume → _supply_demand → _structure → _fib → _momentum → _confluence → _sizing → _execution → _report
 ```
 
 ---
@@ -132,47 +132,53 @@ Summarize:
 
 # 4. MULTI-TF SNAPSHOT
 
-Format:
-```
-W: trend + structure state
-D: trend + structure state
-4H: setup zone
-1H: trigger condition
-15m: entry behavior
-5m: entry micro
-```
+| TF | RSI | MACD | Price vs EMA | Structure | Volume |
+|----|-----|------|-------------|-----------|--------|
+| W | value / zone | state | above/below | trend + phase | regime |
+| D | value / zone | state | above/below | trend + phase | regime |
+| 4H | value / zone | state | above/below | trend + phase | regime |
+| 1H | value / zone | state | above/below | trend + phase | regime |
+| 15m | value / zone | state | above/below | trend + phase | regime |
+| 5m | value / zone | state | above/below | trend + phase | regime |
 
 ---
 
 # 5. LIQUIDITY SUMMARY
 
-Include:
-- swept liquidity level
-- liquidity quality grade (HTF / SESSION / INTERNAL)
-- internal vs external liquidity
-- equal highs/lows
-- session liquidity
+| Item | Detail |
+|------|--------|
+| Swept Level | price |
+| Quality | HTF / SESSION / INTERNAL |
+| Buy-side (BSL) | above levels |
+| Sell-side (SSL) | below levels |
+| Internal | EQH/EQL levels |
+| External | HTF swing points |
 
 ---
 
 # 6. VOLUME SUMMARY
 
-Include:
-- regime (compression / expansion / climax / absorption)
-- confirmation of displacement
-- divergence if present
-- volume_score
+| Metric | Value |
+|--------|-------|
+| Regime | COMPRESSION / EXPANSION / CLIMAX / ABSORPTION |
+| 4H Volume | LOW / NORMAL / HIGH |
+| 24H Volume | LOW / NORMAL / HIGH |
+| Displacement Confirm | YES / NO / PARTIAL |
+| Volume Score | 0-100 |
 
 ---
 
 # 7. STRUCTURE SUMMARY
 
-Include:
-- BOS / CHoCH state
-- displacement quality
-- OB / FVG zones
-- structure_confidence
-- multi_tf alignment
+| Component | Detail |
+|-----------|--------|
+| Trend | UP / DOWN / RANGE / TRANSITION |
+| Phase | CONTINUATION / EXHAUSTION / REVERSAL |
+| BOS / CHoCH | state + price level |
+| Displacement | STRONG / WEAK / NONE |
+| OB / FVG | levels and direction |
+| Structure Confidence | 0-100 |
+| MTF Alignment | FULL / PARTIAL / CONFLICT |
 
 ---
 
@@ -237,14 +243,12 @@ Avoid tight stops in compression regimes.
 
 # 11. TARGET ENGINE
 
-## TP STRUCTURE
-
-| Level | Logic |
-|-------|-------|
-| TP1 | nearest liquidity pool |
-| TP2 | opposite range boundary |
-| TP3 | HTF swing / external liquidity |
-| EXT | fib 1.272 / 1.618 |
+| Level | Price | Source | RR |
+|-------|-------|--------|-----|
+| TP1 | price | liquidity pool / zone | 1R |
+| TP2 | price | range boundary / structural | 2R |
+| TP3 | price | HTF swing / external liq | 3R |
+| EXT | price | fib 1.272/1.618 / far liq | 4R+
 
 ---
 
@@ -277,45 +281,53 @@ Trade becomes invalid if:
 ## HUMAN READABLE REPORT
 
 ```
-⏺ SYMBOL — INSTITUTIONAL TRADE REPORT
+SYMBOL — INSTITUTIONAL TRADE REPORT
+├─ Decision:     ENTER_LONG / ENTER_SHORT / WAIT / NO_TRADE
+├─ Grade:        A+ / A / B / C
+├─ Win Prob:     XX%
+├─ Confluence:   XX/100
+├─ EV:           X.X
+└─ Setup:        LIQUIDITY_RECLAIM / FVG / OB / OTE / WYCKOFF / EW
 
-Decision: ENTER_LONG / ENTER_SHORT / WAIT / NO_TRADE
-Grade: A+ / A / B / C
-Win Probability: XX%
+MARKET STATE
+├─ HTF Bias:     BULLISH / BEARISH / RANGE / TRANSITION
+├─ Session:      ASIA / EUROPE / AMERICA / OVERLAP / ROLLOVER
+├─ Volatility:   LOW / NORMAL / HIGH / EXTREME
+└─ Phase:        COMPRESSION / EXPANSION / CLIMAX / ABSORPTION
 
-Market State:
-HTF Bias:
-Session:
+KEY LEVELS
+├─ Resistance:   1.2345 (source)
+├─ Current:      1.2345
+└─ Support:      1.2345 (source)
 
-Liquidity:
-- Swept Level:
-- Quality:
+LIQUIDITY
+├─ Swept:        1.2345 (HTF / SESSION / INTERNAL)
+├─ BSL Above:    1.2345, 1.2345
+└─ SSL Below:    1.2345, 1.2345
 
-Volume:
-- Regime:
-- Confirmation:
+STRUCTURE
+├─ Trend:        UP / DOWN / RANGE
+├─ BOS/CHoCH:    1.2345 (direction)
+├─ Displacement: YES / NO
+└─ Confidence:   XX/100
 
-Structure:
-- BOS / CHoCH:
-- OB / FVG:
+ENTRY (if applicable)
+├─ Zone:         1.2345 - 1.2345
+├─ Trigger:      1.2345 + volume > 1.5x
+├─ Stop:         1.2345
+├─ TP1:          1.2345 (~1R)
+├─ TP2:          1.2345 (~2R)
+└─ TP3:          1.2345 (~3R)
 
-Confluence:
-- Grade:
-- EV:
-- Setup Type:
+REASONS
+├─ • reason 1
+├─ • reason 2
+└─ • reason 3
 
-Entry Model:
-Entry:
-SL:
-TP1:
-TP2:
-TP3:
-
-Reason:
-- bullet points
-
-Invalidation:
-- bullet points
+INVALIDATIONS
+├─ • invalidation 1
+├─ • invalidation 2
+└─ • invalidation 3
 ```
 
 ---

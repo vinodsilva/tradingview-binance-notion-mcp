@@ -29,8 +29,8 @@ avg_win_R       = avg_win_R         # weighted average target
 | HALF | 0.50% | > 1.0 OR >= 75 | 70-79 |
 | THIN | 0.25% | 0.3 - 1.0 | >= 70 (reduced) |
 
-**EV floor:** EV_ratio <= 0.3 → NO TRADE regardless of confluence score.
-**Score floor:** effective_score < 70 AND no StEngine override → NO TRADE.
+**EV floor:** EV_ratio <= 0.3 → THIN sizing (0.25%) with marginal EV flag.
+**Score floor:** effective_score < 70 AND no StEngine override → THIN sizing with REDUCED confidence flag.
 
 **EV override:** If EV_ratio > 2.0 BUT effective_score < 70 → SCALP sizing only (0.25%), flagged as "positive EV despite low score — volatile setup."
 
@@ -39,7 +39,7 @@ avg_win_R       = avg_win_R         # weighted average target
 |----------|------|
 | > 2.0 | 0.50% |
 | 1.0 - 2.0 | 0.25% |
-| < 1.0 | NO TRADE |
+| < 1.0 | MICRO (0.1%) |
 
 ### 3. Place Structural Stop
 Stop is based on structure, not dollar amount:

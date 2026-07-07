@@ -32,9 +32,9 @@ The StEngine Pine Script has its own built-in trade management. When the strateg
 
 **EV pre-check:** EV_ratio must be > 0.3. If EV_ratio <= 0.3 → NO ENTRY regardless of other conditions.
 
-**Long:** HTF trend bullish OR asymmetry 3:1+, price swept sell-side liquidity and reversed, bullish vol bar (close > open, >1.5x vol), price at/above VWAP, RSI not above 80, invalidation level known, effective_score >= 70.
+**Long:** HTF trend bullish OR inverse sweep with HTF liquidity confirmed OR asymmetry 3:1+, price swept sell-side liquidity and reversed, bullish vol bar (close > open, >1.5x vol), price at/above VWAP, RSI not above 80, invalidation level known, effective_score >= 70.
 
-**Short:** HTF trend bearish OR asymmetry 3:1+, price swept buy-side liquidity and rejected, bearish vol bar (close < open, >1.5x vol), price at/below VWAP, RSI not below 20, invalidation level known, effective_score >= 70.
+**Short:** HTF trend bearish OR inverse sweep with HTF liquidity confirmed OR asymmetry 3:1+, price swept buy-side liquidity and rejected, bearish vol bar (close < open, >1.5x vol), price at/below VWAP, RSI not below 20, invalidation level known, effective_score >= 70.
 
 **Turtle rule:** All conditions met → enter. Any missing → pass. Enter at market or limit on retest. Never chase > 0.5x ATR from trigger.
 
@@ -79,16 +79,145 @@ Check every bar:
 | CHOCH against entry | Exit all |
 | Major news | Exit or tighten to breakeven |
 
-### 8. Draw Trade on Chart
-Use `draw_shape` for visual plan:
-- Entry: text label + horizontal line (green for long, red for short)
-- Stop: horizontal line (red, "SL")
-- TP1/TP2: dashed horizontal lines (green, "+1R"/"+2R")
-- Sweep levels: yellow dashed lines ("SWEEP")
-- OB zones: cyan dotted rectangles
-- FVG zones: magenta dotted rectangles
+### 8. Target Determination from Structure & Patterns
 
-Use `draw_forecast(direction, entry, targets, stop_loss, bars_forward)` for projection line.
+Targets are derived from structure and patterns, NOT fib extensions alone. Priority:
+
+| Priority | Source | How to Determine |
+|----------|--------|-----------------|
+| 1 | Nearest liquidity pool | Opposite-side EQH/EQL, session high/low, prior swing high/low |
+| 2 | Supply/Demand zone boundary | Fresh zone edge opposite entry direction |
+| 3 | Order Block | Untested OB high (for shorts) or low (for longs) |
+| 4 | Fair Value Gap | FVG boundary opposite entry direction |
+| 5 | Previous swing high/low | HH, LH, LL, HL from `_structure` |
+| 6 | Pattern completion | Wyckoff target, Elliott Wave 3/5 completion, measured move (AB=CD) |
+| 7 | Fib extension | 1.272 / 1.618 (fallback when structural targets are far or absent) |
+| 8 | ATR-based | Entry ± 3x ATR (last resort, only if no structural target exists) |
+
+**TP assignment:**
+- TP1 = nearest structural target (conservative take-profit, ~1-2R)
+- TP2 = primary structural target (high probability, liquidity or zone boundary)
+- TP3 = runner / far liquidity (swing completion or range extension)
+- EXT = extreme target (fib extension or far liquidity pool)
+
+**RR calculation:**
+```
+rr_tp1 = abs(tp1 - entry) / abs(stop - entry)
+rr_tp2 = abs(tp2 - entry) / abs(stop - entry)
+rr_tp3 = abs(tp3 - entry) / abs(stop - entry)
+```
+
+---
+
+### 9. Auto Chart Drawing (MANDATORY)
+
+When chart-analysis runs, ALL of the following MUST be drawn on the chart automatically using `draw_shape`. This is required, not optional.
+
+**Setup:**
+1. `draw_clear()` — remove all existing drawings first (clean slate)
+
+**Draw entry level:**
+```
+draw_shape(
+  shape: "horizontal_line",
+  point: { time: now, price: entry_price },
+  overrides: '{"linecolor": "#22c55e", "linewidth": 2, "linestyle": 2}',  // green dashed for long
+  text: "ENTRY"
+)
+```
+
+**Draw stop loss:**
+```
+draw_shape(
+  shape: "horizontal_line",
+  point: { time: now, price: stop_price },
+  overrides: '{"linecolor": "#ef4444", "linewidth": 2, "linestyle": 0}',  // red solid
+  text: "SL"
+)
+```
+
+**Draw TP1 / TP2 / TP3:**
+```
+draw_shape(
+  shape: "horizontal_line",
+  point: { time: now, price: tp1_price },
+  overrides: '{"linecolor": "#22c55e", "linewidth": 2, "linestyle": 2}',  // green dashed
+  text: "+1R"  // or "TP1"
+)
+// repeat for tp2 ("+2R") and tp3 ("+3R")
+```
+
+**Draw sweep levels (liquidity):**
+```
+draw_shape(
+  shape: "horizontal_line",
+  point: { time: now, price: sweep_level },
+  overrides: '{"linecolor": "#eab308", "linewidth": 1, "linestyle": 2}',  // yellow dashed
+  text: "SWEEP"
+)
+```
+
+**Draw supply/demand zones (if applicable):**
+```
+draw_shape(
+  shape: "rectangle",
+  point: { time: zone_start, price: zone_high },
+  point2: { time: zone_end, price: zone_low },
+  overrides: '{"linecolor": "#8b5cf6", "fillcolor": "#8b5cf680", "linewidth": 1}'
+)
+// use purple/violet for demand zones, orange for supply zones
+```
+
+**Draw order blocks (if applicable):**
+```
+draw_shape(
+  shape: "rectangle",
+  point: { time: ob_time, price: ob_high },
+  point2: { time: ob_time_end, price: ob_low },
+  overrides: '{"linecolor": "#06b6d4", "fillcolor": "#06b6d420", "linewidth": 1}'
+)
+```
+
+**Draw FVG zones (if applicable):**
+```
+draw_shape(
+  shape: "rectangle",
+  point: { time: fvg_start, price: fvg_high },
+  point2: { time: fvg_end, price: fvg_low },
+  overrides: '{"linecolor": "#ec4899", "fillcolor": "#ec489920", "linewidth": 1}'
+)
+```
+
+**Draw forecast projection:**
+```
+draw_forecast(
+  direction: "long" | "short",
+  entry: entry_price,
+  targets: [tp1, tp2, tp3],
+  stop_loss: stop_price,
+  bars_forward: 30
+)
+```
+
+**Color conventions:**
+| Element | Color |
+|---------|-------|
+| Entry (long) | Green (#22c55e) |
+| Entry (short) | Red (#ef4444) |
+| Stop loss | Red solid (#ef4444) |
+| TP levels | Green dashed (#22c55e) |
+| Sweep levels | Yellow dashed (#eab308) |
+| Demand zones | Purple (#8b5cf6) |
+| Supply zones | Orange (#f97316) |
+| Order blocks | Cyan (#06b6d4) |
+| FVG zones | Magenta (#ec4899) |
+
+**Screenshot:**
+```
+capture_screenshot(filename="setup")
+```
+
+---
 
 ## Output
 
@@ -97,8 +226,11 @@ Use `draw_forecast(direction, entry, targets, stop_loss, bars_forward)` for proj
   checklist_passed: true | false,
   entry_executed: true | false,
   entry_price_executed: float | null,
-  tp1, tp2,
-  annotations_drawn: ["entry", "stop", "tp1", "tp2", ...],
+  tp1: { price: float, source: "LIQUIDITY | S_D_ZONE | OB | FVG | SWING | PATTERN | FIB | ATR" },
+  tp2: { price: float, source },
+  tp3: { price: float, source },
+  ext: { price: float, source },
+  annotations_drawn: ["entry", "stop", "tp1", "tp2", "tp3", "forecast", "sweep", "zones", "obs", "fvgs"],
   screenshot_path: "screenshots/..."
 }
 ```
