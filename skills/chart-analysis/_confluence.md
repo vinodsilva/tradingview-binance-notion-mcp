@@ -92,7 +92,7 @@ Allowed setups:
 - ELLIOTT WAVE 3 ENTRY (wave 2 completion at OTE zone)
 - BREAKER BLOCK RETEST (flipped OB + structure shift)
 - ENGINEERED LIQUIDITY TRAP (inducement + reversal)
-- CISD RECLAIM (3+ signals converged within 0.5 ATR, direction shift confirmed)
+- CISD RECLAIM (3+ signals converged within reasonable range, direction shift confirmed)
 
 Anything else → low confidence / unlikely edge
 
@@ -118,11 +118,10 @@ Where:
 - Multi-TF fib confluence (3+ TFs aligned = higher P(win))
 - Entry timing (freshness after sweep)
 - Supply/Demand zone freshness and strength (fresh = higher P(win))
-- MTF momentum alignment (RSI/MACD aligned across 3+ TFs = higher P(win))
-- Momentum alignment (RSI/MACD confirming direction = higher P(win))
+- MTF momentum alignment (RSI aligned across 3+ TFs = higher P(win))
+- Momentum alignment (RSI confirming direction = higher P(win))
 - Divergence presence (hidden = higher, regular = direction change pending)
-- Trend health score (EMA alignment + ADX strength)
-- MTF trend health (EMA alignment consistent across W/D/4H/1H = higher P(win))
+- Trend health score (structure clarity)
 - MTF volatility regime comparison (consistent compression across TFs = breakout pending)
 - Wyckoff phase completion (spring/upthrust confirmed = higher P(win))
 - Elliott Wave position (Wave 3 entry = highest conviction)
@@ -136,7 +135,7 @@ Defined from real structure + fib, in priority order:
 - Previous swing high/low (HH, LH, LL, HL)
 - Pattern completion target (Wyckoff, Elliott Wave, measured move AB=CD)
 - Fib extension to nearest HTF liquidity (1.272 / 1.618 — fallback only)
-- ATR-based (3x ATR — last resort)
+- Range-based (3x avg_range — last resort)
 
 NO guessing. Targets MUST be traceable to structure or pattern source.
 
@@ -244,8 +243,6 @@ Momentum must not contradict direction:
 | Direction + momentum conflict | WAIT or REDUCE |
 | Divergence against position | CAUTION — tighten stop |
 | Hidden divergence with position | HIGH CONVICTION |
-| ADX < 20 | RANGE — reduce confidence |
-| ADX > 45 | TREND — hold, beware exhaustion |
 | RSI > 70 in uptrend | Trend strong — hold (not sell) |
 | RSI > 70 in downtrend | Overbought in downtrend — sell signal |
 | RSI < 30 in uptrend | Oversold in uptrend — buy signal |
@@ -253,16 +250,12 @@ Momentum must not contradict direction:
 
 ## 10b. MTF MOMENTUM VALIDATION
 
-Evaluate RSI, MACD, and EMA across 3+ TFs (W, D, entry TF):
+Evaluate RSI across 3+ TFs (W, D, entry TF):
 
 | MTF Condition | Impact |
 |--------------|--------|
 | RSI bullish across W + D + entry TF | +10% to P(win) |
 | RSI conflicting (one TF OB, another OS) | −10%, flag CONFLICT |
-| MACD histogram rising on W + D | +10% to P(win) |
-| MACD histogram falling on W + D | −5%, check for divergence |
-| EMA alignment consistent across 3+ TFs | +10% to P(win) |
-| EMA conflict (HTF bullish, LTF bearish) | −10%, may be retracement in larger trend |
 | MTF hidden divergence with position | +15% to P(win) |
 | MTF regular divergence against position | −15%, CAUTION |
 | HTF momentum agrees with direction | CONFIRM |
@@ -295,9 +288,6 @@ Conflict ≠ invalid. Inverse moves create the best reversals.
 
 When D and W conflict, check MTF indicator alignment to validate the reversal:
 - RSI on D showing oversold (for long) or overbought (for short) = HTF momentum exhausted, reversal likely
-- MACD on W showing histogram divergence (price HH, histogram LH for bearish) = trend weakening at HTF
-- EMA on D sloping against the sweep direction = EMA supports reversal
-- ATR on W still low (contraction) while D ATR expanding = HTF equilibrium, LTF activation = valid
 - RSI on entry TF + 1 TF higher aligned = momentum cluster confirming reversal
 
 The inverse sweep IS the setup. Price moves against HTF trend to grab W/D liquidity, then reverses. The stronger the HTF level taken, the higher the edge.
@@ -336,7 +326,6 @@ Immediately reject if:
 - Supply/Demand zone full mitigation
 - S/D zone invalidated (close beyond zone)
 - Momentum divergence against position (regular divergence)
-- EMA alignment flips against position
 - Wyckoff phase invalidated (spring fails, upthrust fails)
 
 ---
@@ -411,7 +400,7 @@ Score factors present vs missing. Flag gaps. Produce recommendation with confide
   "zone_state": "FRESH | PARTIAL | MITIGATED | INVALID",
 
   "targets": {
-    "tp1": { "price": 0, "source": "LIQUIDITY_POOL | S_D_ZONE | OB | FVG | SWING_HIGH | SWING_LOW | PATTERN | FIB | ATR" },
+    "tp1": { "price": 0, "source": "LIQUIDITY_POOL | S_D_ZONE | OB | FVG | SWING_HIGH | SWING_LOW | PATTERN | FIB" },
     "tp2": { "price": 0, "source": "" },
     "tp3": { "price": 0, "source": "" },
     "ext": { "price": 0, "source": "" }

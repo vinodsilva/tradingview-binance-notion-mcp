@@ -38,10 +38,11 @@ _setup → _volume → _supply_demand → _structure → _fib → _momentum → 
 
 ## PRIMARY
 - OHLCV (all TFs)
-- `data_get_study_values()` → Volume (current + SMA), RSI, ATR, MACD, VWAP indicator values
+- `data_get_study_values()` → Volume (current + SMA), RSI indicator values
 
 ## SECONDARY
 - Mxwll labels (HH/HL/LH/LL/BOS/CHoCH)
+- Mxwll table data (volume regime: 4-Hr/24-Hr Low/Normal/High)
 - `quote_get()` → current price snapshot
 
 ## MTF INDICATOR DATA (CRITICAL CHANGE)
@@ -52,12 +53,8 @@ Indicators are read **per timeframe**, not just once. Each downstream engine rec
 
 | Indicator | Acquired Per TF | Feeds Engine |
 |-----------|-----------------|--------------|
-| RSI | Yes | Volume (light), Momentum |
-| MACD | Yes | Momentum |
-| ATR | Yes | Volume, S/D, Momentum, Sizing |
+| RSI | Yes | Momentum, Volume (light) |
 | Volume SMA20 | Yes | Volume Engine |
-| VWAP | Yes | Volume, Structure |
-| EMA (9, 21, 50, 200) | Yes | Momentum (trend health) |
 | Mxwll Suite | Entry TF only | Structure |
 
 ### Acquisition Rule
@@ -66,7 +63,6 @@ For each timeframe being analyzed (W, D, 4H, 1H, 15m, 5m):
 1. `chart_set_timeframe(TF)` → switch
 2. `data_get_ohlcv(count=100, summary=true)` → OHLCV
 3. `data_get_study_values()` → all indicator readings on THAT timeframe
-4. Parse EMA values from study values, store per TF
 
 This produces a full MTF indicator matrix for the pipeline.
 
@@ -107,13 +103,11 @@ Each downstream engine requires specific indicators to be visible on chart.
 
 ## Required Indicators
 
-| Indicator | Full Name (for chart_manage_indicator) | Feeds Engine | Priority | Crypto Default Inputs | Measures
-|-----------|--------------------------------------|--------------|----------|----------------------|---------
-| Volume | "Volume" | Volume Engine | HARD | length=20, style=Volume | Volume SMA20 baseline, volume_ratio per bar
-| RSI | "Relative Strength Index" | Volume, Momentum | HARD | length=14 (or 7 for faster crypto) | Momentum zone (OB/OS), divergence context
-| MACD | "MACD" | Momentum | HARD | Fast=6, Slow=13, Signal=5 (crypto); Fast=12, Slow=26, Signal=9 (stock) | Momentum crossover, histogram trend, divergence
-| ATR | "Average True Range" | Volume, S/D, Momentum, Sizing | HARD | length=14 | Volatility regime, bar classification
-| Mxwll Suite | Custom Pine Script (not in indicators menu) | Structure | HARD | N/A — custom Pine | BOS/CHoCH, HH/HL/LH/LL, fib levels, liquidity zones
+| Indicator | Chart Name | Source | Feeds Engine | Priority | Measures
+|-----------|----------------|--------|--------------|----------|---------
+| Volume | "Volume" | Standard (length=20) | Volume Engine | HARD | Volume SMA20 baseline, volume_ratio per bar
+| RSI | "RSI Divergence Indicator" | Chart study | Momentum, Volume (light) | HARD | RSI value, divergence context
+| Mxwll Suite | "Mxwll Suite" | Custom Pine Script | Structure, Fib, Momentum | HARD | BOS/CHoCH, HH/HL/LH/LL, fib levels, liquidity zones, session tables
 
 ## Priority Definitions
 
@@ -226,11 +220,7 @@ Compression across sessions → expansion pending.
       "ohlcv": {},
       "indicators": {
         "rsi": { "value": 0 },
-        "atr": { "value": 0 },
-        "macd": { "value": 0, "signal": 0, "histogram": 0 },
-        "volume": { "current": 0, "sma20": 0, "ratio": 0 },
-        "vwap": { "value": 0 },
-        "ema": { "ema_9": 0, "ema_21": 0, "ema_50": 0, "ema_200": 0 }
+        "volume": { "current": 0, "sma20": 0, "ratio": 0 }
       },
       "quote": {}
     },
@@ -264,7 +254,12 @@ Compression across sessions → expansion pending.
   "mxwll": {
     "available": true,
     "labels": [],
-    "lines": []
+    "lines": [],
+    "volume": {
+      "4hr_regime": "",
+      "24hr_regime": ""
+    },
+    "tables": []
   },
 
   "session": {
@@ -325,7 +320,8 @@ Before multi-TF acquisition, verify all required indicators are on chart:
 2. `chart_get_state()` → read studies[]
 3. Cross-reference against the INDICATOR REGISTRY (section 4)
 4. For each HARD indicator missing:
-   - `chart_manage_indicator(action="add", indicator="<Full Name>")`
+   - Volume → `chart_manage_indicator(action="add", indicator="Volume")`
+   - RSI Divergence Indicator → manually add (custom Pine may require manual setup)
 5. If Mxwll Suite missing → FLAG_DEGRADED (cannot be added via API)
 6. Re-run `chart_get_state()` → confirm all present
 7. Update `data_quality.indicators_ready` and `data_quality.missing_indicators`
@@ -341,19 +337,17 @@ For each timeframe in [W, D, 4H, 1H, 15m, 5m]:
    Store in `timeframes[TF].indicators`:
    - **Volume**: current volume, SMA20 baseline
    - **RSI**: RSI value
-   - **ATR**: ATR value
-   - **MACD**: MACD line, Signal line, Histogram
-   - **VWAP**: VWAP value
-   - **EMA values**: parse from Moving Average Exponential study readings (9, 21, 50, 200 EMA levels)
 4. `quote_get()` → current price snapshot
    Store in `timeframes[TF].quote`
 
 **Important**: Indicators are visible on all timeframes (they auto-adjust to chart resolution). Study values reflect the current TF's computation. This is the correct behavior — RSI on 4H is different from RSI on 15m.
 
-## Phase 3 — Structure Labels (Entry TF)
+## Phase 3 — Mxwll Data (Entry TF)
 
 5. `data_get_pine_lines(study_filter="Mxwll")` → Mxwll horizontal levels
 6. `data_get_pine_labels(study_filter="Mxwll")` → Mxwll structure labels (HH/HL/LH/LL/BOS/CHoCH)
+7. `data_get_pine_tables(study_filter="Mxwll")` → Mxwll session tables (volume regime, session info)
+   - Parse volume regime from rows like `"4-Hr Volume: | Low"`, `"24-Hr Volume: | Low"`
 
 ## Per-TF Data Shape
 
@@ -364,16 +358,7 @@ Each timeframe in the output stores:
   "ohlcv": { "summary": {}, "bars": [] },
   "indicators": {
     "rsi": { "value": 0, "zone": "" },
-    "atr": { "value": 0, "ratio": 0 },
-    "macd": { "value": 0, "signal": 0, "histogram": 0 },
-    "volume": { "current": 0, "sma20": 0, "ratio": 0 },
-    "vwap": { "value": 0 },
-    "ema": {
-      "ema_9": 0,
-      "ema_21": 0,
-      "ema_50": 0,
-      "ema_200": 0
-    }
+    "volume": { "current": 0, "sma20": 0, "ratio": 0 }
   },
   "quote": {
     "last": 0,
@@ -389,8 +374,6 @@ Each timeframe in the output stores:
 
 For each timeframe, verify indicator data is populated:
 - `timeframes[TF].indicators.rsi.value` !== undefined
-- `timeframes[TF].indicators.atr.value` !== undefined
-- `timeframes[TF].indicators.macd.value` !== undefined
 - `timeframes[TF].indicators.volume.sma20` !== undefined
 
 Missing per-TF indicator values → FLAG_DEGRADED on that TF, pipeline continues.

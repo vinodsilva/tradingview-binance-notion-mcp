@@ -16,10 +16,10 @@ The StEngine Pine Script has its own built-in trade management. When the strateg
 
 | Parameter | Strategy Default | MCP Override |
 |-----------|-----------------|--------------|
-| Stop Loss | 2x ATR from entry | Can override via `indicator_set_inputs(useSL=false)` if structural stop differs |
-| Take Profit | 3x ATR from entry | Can override if structural TP further |
-| Trailing Stop | 2x ATR trail (optional) | MCP trail is 1 ATR - more aggressive |
-| Partial TP | 50% at 2x ATR (optional) | MCP is 25% at 1R, 25% at 2R - phased |
+| Stop Loss | 2x avg_range from entry | Can override via `indicator_set_inputs(useSL=false)` if structural stop differs |
+| Take Profit | 3x avg_range from entry | Can override if structural TP further |
+| Trailing Stop | 2x avg_range trail (optional) | MCP trail is 1 avg_range - more aggressive |
+| Partial TP | 50% at 2x avg_range (optional) | MCP is 25% at 1R, 25% at 2R - phased |
 | Flip on opposite | YES (strategy built-in) | Same |
 | CHoCH exit | YES (strategy built-in) | Same |
 
@@ -32,11 +32,11 @@ The StEngine Pine Script has its own built-in trade management. When the strateg
 
 **EV pre-check:** EV_ratio must be > 0.3. If EV_ratio <= 0.3 -> NO ENTRY regardless of other conditions.
 
-**Long:** HTF trend bullish OR inverse sweep with HTF liquidity confirmed OR asymmetry 3:1+, price swept sell-side liquidity and reversed, bullish vol bar (close > open, >1.5x vol), price at/above VWAP, RSI not above 80, invalidation level known, effective_score >= 70.
+**Long:** HTF trend bullish OR inverse sweep with HTF liquidity confirmed OR asymmetry 3:1+, price swept sell-side liquidity and reversed, bullish vol bar (close > open, >1.5x vol), RSI not above 80, invalidation level known, effective_score >= 70.
 
-**Short:** HTF trend bearish OR inverse sweep with HTF liquidity confirmed OR asymmetry 3:1+, price swept buy-side liquidity and rejected, bearish vol bar (close < open, >1.5x vol), price at/below VWAP, RSI not below 20, invalidation level known, effective_score >= 70.
+**Short:** HTF trend bearish OR inverse sweep with HTF liquidity confirmed OR asymmetry 3:1+, price swept buy-side liquidity and rejected, bearish vol bar (close < open, >1.5x vol), RSI not below 20, invalidation level known, effective_score >= 70.
 
-**Turtle rule:** All conditions met -> enter. Any missing -> pass. Enter at market or limit on retest. Never chase > 0.5x ATR from trigger.
+**Turtle rule:** All conditions met -> enter. Any missing -> pass. Enter at market or limit on retest. Never chase > 0.5x avg_range from trigger.
 
 ### 2. Pyramiding (Livermore)
 | Price moved | Add |
@@ -52,15 +52,15 @@ Never add if price hasn't moved in your favor. Tighter stop on each add.
 | Level | Action |
 |-------|--------|
 | +1R | Sell 25% -> move stop to breakeven |
-| +2R | Sell 25% -> trail stop by 1 ATR |
-| +3R | Sell 25% -> trail stop by 1.5 ATR |
+| +2R | Sell 25% -> trail stop by 1 avg_range |
+| +3R | Sell 25% -> trail stop by 1.5 avg_range |
 | Runner | Hold 25% with trailing stop |
 
 ### 4. Trailing Stop
 Trail at previous swing low/high (structure-based). Never loosen - only tighten.
 
 ### 5. Time Stop (Seykota)
-If price hasn't moved 0.5x ATR in your favor within 5 bars on entry TF -> exit.
+If price hasn't moved 0.5x avg_range in your favor within 5 bars on entry TF -> exit.
 
 ### 6. Invalidation Monitoring
 Check every bar:
@@ -92,7 +92,7 @@ Targets are derived from structure and patterns, NOT fib extensions alone. Prior
 | 5 | Previous swing high/low | HH, LH, LL, HL from `_structure` |
 | 6 | Pattern completion | Wyckoff target, Elliott Wave 3/5 completion, measured move (AB=CD) |
 | 7 | Fib extension | 1.272 / 1.618 (fallback when structural targets are far or absent) |
-| 8 | ATR-based | Entry +/- 3x ATR (last resort, only if no structural target exists) |
+| 8 | ATR-based | Entry +/- 3x avg_range (last resort, only if no structural target exists) |
 
 **TP assignment:**
 - TP1 = nearest structural target (conservative take-profit, ~1-2R)
@@ -115,6 +115,8 @@ When chart-analysis runs, ALL of the following MUST be drawn on the chart automa
 
 **Setup:**
 1. `draw_clear()` - remove all existing drawings first (clean slate)
+2. `chart_get_state()` → get indicator entity IDs from `studies[]`, store in a list
+3. Hide all indicators via `indicator_toggle_visibility(entity_id, false)` for each study — ensures clean screenshot with only annotations
 
 **Label overlap prevention:**
 All horizontal line labels must use time offsets so they don't stack on top of each other. Calculate `bar_secs` from resolution:
@@ -243,7 +245,13 @@ draw_forecast(
 
 **Screenshot:**
 ```
-capture_screenshot(filename="setup")
+capture_screenshot(filename="setup")  // clean — indicators hidden
+```
+
+**Restore indicators after screenshot:**
+```
+// Re-show all indicators via indicator_toggle_visibility(entity_id, true) for each
+// Use the entity IDs stored in step 2 of Setup
 ```
 
 ---
@@ -255,7 +263,7 @@ capture_screenshot(filename="setup")
   checklist_passed: true | false,
   entry_executed: true | false,
   entry_price_executed: float | null,
-  tp1: { price: float, source: "LIQUIDITY | S_D_ZONE | OB | FVG | SWING | PATTERN | FIB | ATR" },
+  tp1: { price: float, source: "LIQUIDITY | S_D_ZONE | OB | FVG | SWING | PATTERN | FIB" },
   tp2: { price: float, source },
   tp3: { price: float, source },
   ext: { price: float, source },

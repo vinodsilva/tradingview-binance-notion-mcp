@@ -64,7 +64,7 @@ For EACH timeframe (W, D, 4H, 1H, 15m, 5m):
 ## Swing Selection Rules
 - use the most recent completed swing for retracement
 - use the broader structure swing (external liquidity) for extension
-- discard micro swings (range < 0.3 ATR)
+- discard micro swings (range < 0.3 avg_range)
 
 ---
 
@@ -138,7 +138,7 @@ A W+D fib level aligned = EXTREME confluence.
 
 ## Confluence Zones
 
-Find price ranges where 3+ TF fib levels overlap within 0.5 ATR:
+Find price ranges where 3+ TF fib levels overlap within 0.5 avg_range:
 
 ```
 confluence_zone = {
@@ -158,8 +158,8 @@ When multiple Fibonacci levels from different swing origins converge at the same
 ## Cluster Detection:
 
 ```
-cluster_min = min(all fib levels within 0.3 ATR of each other)
-cluster_max = max(all fib levels within 0.3 ATR)
+cluster_min = min(all fib levels within 0.3 avg_range of each other)
+cluster_max = max(all fib levels within 0.3 avg_range)
 cluster_count = number of levels in cluster
 ```
 
@@ -272,7 +272,7 @@ Components:
   - 1 TF = 0
 - liquidity_alignment: 0–20
   - sweep at fib level = 20 points
-  - level within 0.5 ATR of liquidity = 10
+  - level within 0.5 avg_range of liquidity = 10
   - no alignment = 0
 - structure_alignment: 0–10
   - BOS/CHoCH at fib level = 10 points
@@ -302,8 +302,8 @@ NO EDGE if:
 - retracement level hit without structure shift
 - multi-TF fib levels disagree (conflicting zones)
 - price blew through 0.618 without reaction
-- swing is too small (range < 1 ATR on that TF)
-- fib level is too far from current price (> 3 ATR away)
+- swing is too small (range < 1 avg_range on that TF)
+- fib level is too far from current price (> 3 avg_range away)
 
 ---
 

@@ -132,14 +132,14 @@ Summarize:
 
 # 4. MULTI-TF SNAPSHOT
 
-| TF | RSI | MACD | Price vs EMA | Structure | Volume |
-|----|-----|------|-------------|-----------|--------|
-| W | value / zone | state | above/below | trend + phase | regime |
-| D | value / zone | state | above/below | trend + phase | regime |
-| 4H | value / zone | state | above/below | trend + phase | regime |
-| 1H | value / zone | state | above/below | trend + phase | regime |
-| 15m | value / zone | state | above/below | trend + phase | regime |
-| 5m | value / zone | state | above/below | trend + phase | regime |
+| TF | RSI | Structure | Volume |
+|----|-----|-----------|--------|
+| W | value / zone | trend + phase | regime |
+| D | value / zone | trend + phase | regime |
+| 4H | value / zone | trend + phase | regime |
+| 1H | value / zone | trend + phase | regime |
+| 15m | value / zone | trend + phase | regime |
+| 5m | value / zone | trend + phase | regime |
 
 ---
 
@@ -215,7 +215,7 @@ SL must be:
 - beyond swept liquidity
 - beyond OB invalidation
 - beyond structural swing
-- minimum 1 ATR buffer
+- minimum range buffer
 
 ## RISK BY CONVICTION GRADE
 
@@ -229,7 +229,7 @@ SL must be:
 
 ## LEVERAGE CAPS
 
-| ATR Range | Max Leverage |
+| Range Size | Max Leverage |
 |-----------|-------------|
 | < 1% | 5x |
 | 1-3% | 3x |
@@ -364,7 +364,7 @@ INVALIDATIONS
     "risk_pct": 0,
     "position_size": 0,
     "stop_loss": 0,
-    "stop_type": "STRUCTURAL | LIQUIDITY | ATR",
+    "stop_type": "STRUCTURAL | LIQUIDITY",
     "leverage": 0,
     "rr": 0
   },

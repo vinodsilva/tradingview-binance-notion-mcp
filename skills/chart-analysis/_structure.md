@@ -107,7 +107,6 @@ The inflection point where market structure transitions from one directional bia
 | CHoCH | Breaks prior LH structure | Breaks prior HL structure |
 | BOS + Retest | BOS up, retest holds | BOS down, retest rejects |
 | RSI Regime Shift | Crosses above 50 from below | Crosses below 50 from above |
-| MACD Zero Cross | MACD crosses above 0 | MACD crosses below 0 |
 | Volume | Expansion on reclaim bars | Expansion on rejection bars |
 
 ### CISD Confirmation Levels
@@ -120,7 +119,7 @@ The inflection point where market structure transitions from one directional bia
 | FAILED | Price back through CISD zone | Abort, reassess |
 
 ### CISD Zone Rules
-- CISD zone = the price range where 3+ signals overlap within 0.5 ATR
+- CISD zone = the price range where 3+ signals overlap within reasonable range
 - Fewer than 3 signals = NOISE, not CISD
 - Sweep without displacement = TRAP, not CISD
 - CISD is only valid on the timeframe where the sweep occurred
@@ -228,7 +227,7 @@ Detection:
 # 5. DISPLACEMENT ENGINE
 
 Valid if:
-- ≥1.5x ATR candle
+- ≥1.5x avg_range candle
 - volume expansion
 - directional close near extreme
 
@@ -236,8 +235,8 @@ Valid if:
 
 | Leg Type | Volume | Range | Structure |
 |----------|--------|-------|-----------|
-| IMPULSE | Expanding (1.5x+) | Wide (1.5x ATR+) | BOS direction |
-| RETRACEMENT | Contracting (< 1x) | Narrow (< 1 ATR) | Counter-trend |
+| IMPULSE | Expanding (1.5x+) | Wide (1.5x avg_range+) | BOS direction |
+| RETRACEMENT | Contracting (< 1x) | Narrow (< 1 avg_range) | Counter-trend |
 
 - Impulse legs = directional conviction
 - Retracement legs = profit-taking or position building

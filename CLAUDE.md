@@ -6,7 +6,7 @@
 
 ### "What's on my chart right now?"
 1. `chart_get_state` → symbol, timeframe, chart type, list of all indicators with entity IDs
-2. `data_get_study_values` → current numeric values from all visible indicators (RSI, MACD, BBands, EMAs, etc.)
+2. `data_get_study_values` → current numeric values from all visible indicators (RSI, Volume, Mxwll, etc.)
 3. `quote_get` → real-time price, OHLC, volume for current symbol
 
 ### "What levels/lines/labels are showing?"

@@ -34,7 +34,7 @@ avg_win_R       = avg_win_R         # weighted average target
 
 **EV override:** If EV_ratio > 2.0 BUT effective_score < 70 → SCALP sizing only (0.25%), flagged as "positive EV despite low score — volatile setup."
 
-**Scalp sizing** (ATR < 0.5% or short session remaining):
+**Scalp sizing** (range < 0.5% or short session remaining):
 | EV Ratio | Risk |
 |----------|------|
 | > 2.0 | 0.50% |
@@ -68,10 +68,10 @@ avg_win_R = (0.25 * tp1_R) + (0.25 * tp2_R) + (0.50 * tp3_R)
 Pass avg_win_R back to `_confluence` for EV recalibration if needed.
 
 ### 5. Leverage (Optional)
-- ATR < 1% → max 5x
-- ATR 1-3% → max 3x
-- ATR 3-5% → max 2x
-- ATR > 5% → 1x or pass
+- Range < 1% → max 5x
+- Range 1-3% → max 3x
+- Range 3-5% → max 2x
+- Range > 5% → 1x or pass
 - Hard cap: never exceed 3x without multi-leg hedge
 
 ## Output

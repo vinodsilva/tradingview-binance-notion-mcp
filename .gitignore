@@ -5,3 +5,5 @@ temp_*
 *.log
 discovery-log.json
 .env
+.env.example
+.env.enc

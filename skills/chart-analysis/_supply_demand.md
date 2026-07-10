@@ -63,8 +63,8 @@ A demand zone exists where:
 
 ### DZ Identification Rules:
 - Minimum 2 bars in base
-- Base range < 1.5 ATR
-- Breakout bar closes > 0.5 ATR above base high
+- Base range < 1.5 avg_range
+- Breakout bar closes > 0.5 avg_range above base high
 - Volume on breakout > 1.5x SMA20
 
 ## 1b. SUPPLY ZONES
@@ -81,8 +81,8 @@ A supply zone exists where:
 
 ### SZ Identification Rules:
 - Minimum 2 bars in base
-- Base range < 1.5 ATR
-- Breakdown bar closes > 0.5 ATR below base low
+- Base range < 1.5 avg_range
+- Breakdown bar closes > 0.5 avg_range below base low
 - Volume on breakdown > 1.5x SMA20
 
 ---
@@ -168,7 +168,7 @@ Zone: BASE = demand zone (reversal)
 | RBR/DBD pattern | 30 |
 | FRESH zone | 20 |
 | Breakout volume > 2x | 15 |
-| Base width < 0.5 ATR | 10 |
+| Base width < 0.5 avg_range | 10 |
 | Multi-TF alignment | 10 |
 | No nearby opposing zone | 5 |
 | Clear displacement | 10 |
@@ -498,7 +498,7 @@ volume > 1.5x average
 ### Compression:
 ```
 consecutive_bars with decreasing range
-range / ATR < 0.5
+range / avg_range < 0.5
 ```
 
 - Indicates volatility contraction

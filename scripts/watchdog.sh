@@ -12,17 +12,12 @@ PID_FILE="$LOGS_DIR/watchdog.pid"
 TV_PID_FILE="$LOGS_DIR/tradingview.pid"
 MCP_PID_FILE="$LOGS_DIR/mcp.pid"
 VSCODE_PID_FILE="$LOGS_DIR/vscode.pid"
-CLAUDE_PID_FILE="$LOGS_DIR/claude.pid"
 
 PORT=9222
 CHECK_INTERVAL=15
 MAX_RESTARTS=5
 RESTART_WINDOW=600
 PROJECT_NAME="tradingview-mcp"
-
-# Claude Code env vars (restored on restart)
-CLAUDE_BASE_URL="https://api.deepseek.com/anthropic"
-CLAUDE_AUTH_TOKEN="sk-b65617fa73df4a26adf9ed2fbe6285d3"
 
 mkdir -p "$LOGS_DIR"
 
@@ -118,7 +113,7 @@ start_tradingview() {
 start_mcp() {
   log "Starting MCP server: node src/server.js"
   cd "$PROJECT_DIR"
-  (sleep 999999999) | nohup node src/server.js > "$LOGS_DIR/mcp.log" 2>&1 &
+  nohup node src/server.js > "$LOGS_DIR/mcp.log" 2>&1 &
   local pid=$!
   echo "$pid" > "$MCP_PID_FILE"
   log "MCP server PID: $pid"
@@ -142,6 +137,7 @@ stop_tradingview() {
       kill "$pid" 2>/dev/null || true
       for i in $(seq 1 10); do
         if ! kill -0 "$pid" 2>/dev/null; then break; fi
+        
         sleep 1
       done
       kill -9 "$pid" 2>/dev/null || true
@@ -168,25 +164,6 @@ stop_mcp() {
   fi
   rm -f "$MCP_PID_FILE"
   log "MCP server stopped"
-}
-
-stop_claude() {
-  log "Stopping Claude Code..."
-  if [ -f "$CLAUDE_PID_FILE" ]; then
-    local pid
-    pid=$(cat "$CLAUDE_PID_FILE" 2>/dev/null)
-    if [ -n "$pid" ]; then
-      kill "$pid" 2>/dev/null || true
-      for i in $(seq 1 5); do
-        if ! kill -0 "$pid" 2>/dev/null; then break; fi
-        sleep 1
-      done
-      kill -9 "$pid" 2>/dev/null || true
-    fi
-  fi
-  pkill -f "claude" 2>/dev/null || true
-  rm -f "$CLAUDE_PID_FILE"
-  log "Claude Code stopped"
 }
 
 find_vscode() {
@@ -250,44 +227,6 @@ start_vscode() {
   return 0
 }
 
-is_claude_running() {
-  if [ -f "$CLAUDE_PID_FILE" ]; then
-    local pid
-    pid=$(cat "$CLAUDE_PID_FILE" 2>/dev/null)
-    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-      return 0
-    fi
-  fi
-  local pids
-  pids=$(pgrep -f "claude" 2>/dev/null || true)
-  if [ -n "$pids" ]; then
-    local first
-    first=$(echo "$pids" | head -1)
-    echo "$first" > "$CLAUDE_PID_FILE"
-    return 0
-  fi
-  return 1
-}
-
-start_claude() {
-  log "Restarting Claude Code..."
-  cd "$PROJECT_DIR"
-  export ANTHROPIC_BASE_URL="$CLAUDE_BASE_URL"
-  export ANTHROPIC_AUTH_TOKEN="$CLAUDE_AUTH_TOKEN"
-  nohup claude > "$LOGS_DIR/claude.log" 2>&1 &
-  local pid=$!
-  echo "$pid" > "$CLAUDE_PID_FILE"
-  log "Claude Code started (PID: $pid, ANTHROPIC_BASE_URL: $CLAUDE_BASE_URL)"
-  sleep 3
-  if kill -0 "$pid" 2>/dev/null; then
-    log "Claude Code running"
-    return 0
-  else
-    log "ERROR: Claude Code failed to start (is 'claude' installed?)"
-    return 1
-  fi
-}
-
 crash_loop_detected() {
   local recent
   recent=$(grep "Restarting TradingView" "$WATCHDOG_LOG" 2>/dev/null | tail -"$MAX_RESTARTS" | head -1)
@@ -331,7 +270,6 @@ watchdog_loop() {
   local tv_ok=false
   local mcp_ok=false
   local vscode_ok=false
-  local claude_ok=false
 
   while true; do
     if ! is_tv_running; then
@@ -381,17 +319,6 @@ watchdog_loop() {
       fi
     fi
 
-    if ! is_claude_running; then
-      log "Claude Code not running. Restarting..."
-      start_claude
-      claude_ok=true
-    else
-      if [ "$claude_ok" = false ]; then
-        log "Claude Code OK (PID: $(cat "$CLAUDE_PID_FILE" 2>/dev/null || echo 'unknown'))"
-        claude_ok=true
-      fi
-    fi
-
     sleep "$CHECK_INTERVAL"
   done
 }
@@ -400,7 +327,6 @@ cleanup() {
   log ""
   log "Shutting down watchdog..."
   stop_mcp
-  stop_claude
   log "Watchdog stopped"
   rm -f "$PID_FILE"
   exit 0
@@ -461,14 +387,6 @@ case "${1:-}" in
     if is_vscode_running; then
       vs_pid=$(cat "$VSCODE_PID_FILE" 2>/dev/null || echo 'unknown')
       echo "Status: RUNNING (PID: $vs_pid)"
-    else
-      echo "Status: STOPPED"
-    fi
-    echo ""
-    echo "--- Claude Code ---"
-    if is_claude_running; then
-      claude_pid=$(cat "$CLAUDE_PID_FILE" 2>/dev/null || echo 'unknown')
-      echo "Status: RUNNING (PID: $claude_pid, URL: $CLAUDE_BASE_URL)"
     else
       echo "Status: STOPPED"
     fi

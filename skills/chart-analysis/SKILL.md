@@ -34,7 +34,7 @@ _structure ───────────────────────
 _fib ────────────────────────────────────────────────
    ↓                  (OTE 0.705, Clusters, Wave Fib)
 _momentum ───────────────────────────────────────────
-   ↓                  (RSI/MACD, Divergence, Volatility)
+   ↓                  (RSI, Divergence, OHLCV Range)
 _confluence ─────────────────────────────────────────
    ↓
 _sizing
@@ -69,9 +69,9 @@ Before anything:
 - Verify OHLCV exists for all TFs
 - Verify volume integrity
 - Mxwll availability
-- Verify indicator registry — confirm Volume, RSI, MACD, ATR, Mxwll Suite are on chart
+- Verify indicator registry — confirm Volume, RSI (RSI Divergence Indicator), Mxwll Suite are on chart
 - Auto-add missing indicators via `chart_manage_indicator` (except Mxwll — requires manual setup)
-- **Acquire per-TF indicator data** — for each TF (W, D, 4H, 1H, 15m, 5m): switch timeframe, get OHLCV, then `data_get_study_values()` for RSI, MACD, ATR, Volume SMA, VWAP, EMA values
+- **Acquire per-TF indicator data** — for each TF (W, D, 4H, 1H, 15m, 5m): switch timeframe, get OHLCV, then `data_get_study_values()` for RSI and Volume SMA values
 - **Verify MTF indicator completeness** — check `timeframes[TF].indicators` populated for all TFs
 - Establish time-based context (Kill Zones, Opening Range, Session Bias, Initial Balance)
 
@@ -148,11 +148,10 @@ Fib extensions are secondary for target determination. Primary targets come from
 
 Execute `_momentum` using:
 
-- RSI, MACD, ADX from per-TF data: `setup.timeframes[TF].indicators` across W, D, 4H, 1H, 15m, 5m
-- EMA values (9, 21, 50, 200) from `setup.timeframes[TF].indicators.ema` per TF
-- Regular + Hidden Divergence detection from structure swings
-- EMA alignment (9/21/50/200) and trend health
-- Volatility regime (ATR expansion/contraction, range compression)
+- RSI from per-TF data: `setup.timeframes[TF].indicators.rsi` across W, D, 4H, 1H, 15m, 5m
+- Regular + Hidden Divergence detection from RSI + structure swings
+- Mxwll fib levels for dynamic support/resistance context
+- Volatility regime (range compression via OHLCV)
 
 Output: momentum score, trend health score, volatility score, divergence state, MTF momentum alignment status.
 
@@ -266,7 +265,7 @@ Stop must be:
 - beyond liquidity sweep
 - or beyond OB
 - or beyond S/D zone boundary
-- or 1 ATR buffer minimum
+- or reasonable range buffer minimum
 
 ---
 
@@ -294,8 +293,11 @@ When running chart-analysis, the pipeline MUST automatically draw the complete s
 
 Steps:
 1. `draw_clear()` — remove all existing drawings first
-2. Draw entry, stop, targets, sweep levels, S/D zones, OBs, FVGs, forecast line
-3. `capture_screenshot(filename="setup")` — save annotated chart
+2. `chart_get_state()` → get indicator entity IDs from `studies[]`, store list
+3. Hide all indicators via `indicator_toggle_visibility(entity_id, false)` for each study — ensures clean chart with only annotations
+4. Draw entry, stop, targets, sweep levels, S/D zones, OBs, FVGs, forecast line
+5. `capture_screenshot(filename="setup")` — save annotated chart (clean, no indicators)
+6. Re-show all indicators via `indicator_toggle_visibility(entity_id, true)` for each study
 
 See `_execution.md` section 8 (Draw Trade on Chart) for complete drawing specification.
 
@@ -333,7 +335,7 @@ TP1 = nearest target (conservative). TP2 = primary structural target. TP3 = runn
 ## EXECUTION MODE
 
 - Market OR limit retest
-- No chasing beyond 0.5 ATR
+- No chasing beyond reasonable range
 
 ---
 
@@ -342,22 +344,26 @@ TP1 = nearest target (conservative). TP2 = primary structural target. TP3 = runn
 - +1R → partial exit + BE
 - +2R → trail stop
 - CHoCH against → exit
-- time stop if no progress (0.5x ATR within 5 bars)
+- time stop if no progress within 5 bars
 - momentum divergence → tighten or exit
 - S/D zone invalidation → reassess position
 
 ---
 
-# STEP 9 — CHART ANNOTATION & SCREENSHOT
+# STEP 9 — CHART ANNOTATION & SCREENSHOT (CLEAN MODE)
 
-After sizing and before the written report, auto-draw the full setup on chart:
+After sizing and before the written report, auto-draw the full setup on chart. The screenshot MUST capture only the price chart with annotations — no indicator overlays.
 
+Steps:
 1. `draw_clear()` — clear previous drawings
-2. `draw_shape` for each element (see _execution.md section 8)
-3. `draw_forecast(direction, entry, targets, stop_loss, bars_forward=30)` for projection
-4. `capture_screenshot(filename="setup")` — save annotated chart image
+2. `chart_get_state()` → get indicator entity IDs from `studies[]`, store list
+3. Hide all indicators via `indicator_toggle_visibility(entity_id, false)` for each study
+4. `draw_shape` for each element (see _execution.md section 8)
+5. `draw_forecast(direction, entry, targets, stop_loss, bars_forward=30)` for projection
+6. `capture_screenshot(filename="setup")` — save annotated chart image (clean, no indicators)
+7. Re-show all indicators via `indicator_toggle_visibility(entity_id, true)` for each study
 
-This is MANDATORY. Every analysis run must produce a visually annotated chart.
+This is MANDATORY. Every analysis run must produce a visually annotated chart without indicator clutter.
 
 ---
 
