@@ -1,30 +1,40 @@
-# Research Notes
+# Research Context
+
+This project explores an open question in human-AI collaboration: **how can LLM-based agents interact with professional financial desktop applications to support human decision-making?**
 
 ## Motivation
 
-Agent-forward trading represents an emerging paradigm where LLM agents assist — but do not replace — human traders. This project is a practical exploration of the interface layer required to make that possible.
+Agent-augmented trading represents an emerging paradigm where LLM agents assist — but do not replace — human traders. The Model Context Protocol (MCP) provides a standardized way for LLMs to interact with external tools. Financial desktop applications like TradingView are among the most complex, stateful, real-time interfaces that exist. Connecting the two raises genuine research questions about agent reliability, context management, and human-AI collaboration that remain under-explored.
 
-The Model Context Protocol (MCP) provides a standardized way for LLMs to interact with external tools. Financial desktop applications like TradingView are among the most complex, stateful, real-time interfaces that exist. Connecting the two raises genuine research questions about agent reliability, context management, and human-AI collaboration that have not been well-studied.
+This project is not a trading bot. It is an **interface layer** that makes a trading application legible to an LLM agent, allowing researchers and developers to study human-AI collaboration in financial workflows.
 
-## Open Questions This Project Explores
+---
+
+## Research Questions
 
 ### 1. Context Window Constraints
 
-A full chart state with multiple indicators can easily exceed practical context limits. A single Pine Script source file can be 200KB+. OHLCV data for 500 bars is ~40KB.
+A full chart state with multiple indicators can easily exceed practical context limits. A single Pine Script source file can be 200KB+. OHLCV data for 500 bars approaches 40KB.
 
-How should agents prioritize what to read? This project's approach: compact-by-default output (`summary: true`, `study_filter`, deduplicated pine graphics), with verbose mode as opt-in. The tool design itself encodes a hypothesis about agent-friendly data granularity.
+**How should agents prioritize what to read?** This project's approach: compact-by-default output (`summary: true`, deduplicated pine graphics, capped labels), with verbose mode as opt-in. The tool design itself encodes a hypothesis about agent-friendly data granularity.
+
+**Key finding:** The most impactful design decision was making all tools return compact output by default. Without this, a typical "analyze my chart" workflow consumes 80KB+ of context. With compact defaults, it's 5-10KB.
 
 ### 2. Temporal Consistency
 
 Market data changes continuously. A quote fetched at the start of an agent's reasoning may be stale by the time it responds. Indicator values shift every tick.
 
-How does an agent reason about data that may be stale by the time it responds? What's the practical latency budget for chart-reading workflows?
+**How does an agent reason about data that may be stale by the time it processes it?** What's the practical latency budget for chart-reading workflows?
+
+**Key finding:** When streaming data changes faster than the agent can respond, the agent's reasoning becomes stale. This is a fundamental limitation of request-response LLM architectures operating on real-time data. The practical solution is using streaming for human monitoring (piped to dashboards) rather than agent consumption.
 
 ### 3. Tool Granularity
 
 Should an agent have one `read_chart` tool or 78 granular tools? This project chose granularity — separate tools for quote, OHLCV, indicator values, pine lines, pine labels, pine tables, pine boxes, etc.
 
-The tradeoff: granular tools give the agent precise control and small payloads, but require the agent to know which tool to call (solved via `CLAUDE.md` decision trees and MCP server instructions). A single coarse tool would be simpler but would waste context on unneeded data.
+**The tradeoff:** Granular tools give the agent precise control and small payloads, but require the agent to know which tool to call (solved via MCP server instructions and a decision-tree config file). A single coarse tool would be simpler but would waste context on unneeded data.
+
+**Key finding:** 78 tools does not confuse the agent. With descriptive tool names and clear instructions, Claude consistently selects the right tools. The key is the instruction block — not reducing tool count.
 
 ### 4. Failure Transparency
 
@@ -40,38 +50,37 @@ The boundary between "agent acts autonomously" and "agent proposes, human confir
 
 ### 6. Multi-Asset Agent Reasoning
 
-When an agent monitors multiple symbols simultaneously (via `pane_set_layout` + `stream all`), how does it reason about cross-asset relationships? Can it identify divergences, correlations, or relative strength from raw OHLCV across 4 panes?
+When an agent monitors multiple symbols simultaneously (via multi-pane layouts + streaming), how does it reason about cross-asset relationships? Can it identify divergences, correlations, or relative strength from raw OHLCV across 4 panes?
 
 ### 7. Pine Script as Agent Output
 
-Can an LLM agent write, debug, and iterate on Pine Script effectively? Pine Script is a domain-specific language with unusual constraints (series types, historical referencing, repainting). The compile-error-fix loop (`pine_set_source` → `pine_smart_compile` → `pine_get_errors`) tests whether agents can handle DSL-specific debugging.
+Can an LLM agent write, debug, and iterate on Pine Script effectively? Pine Script is a domain-specific language with unusual constraints (series types, historical referencing, repainting behavior).
 
-## Findings So Far
+**Key finding:** The compile → error → fix loop is where agent assistance provides the most value. Pine Script has unusual semantics that even experienced programmers struggle with. Having an agent that can read errors, understand the language, and propose fixes significantly accelerates development.
 
-### Context Management is the Primary Constraint
+---
 
-The most impactful design decision was making all tools return compact output by default. Without this, a single "analyze my chart" workflow would consume 80KB+ of context. With compact defaults and `study_filter`, it's 5-10KB.
+## Findings Summary
 
-### Tool Count Does Not Confuse the Agent
+| Area | Finding |
+|------|---------|
+| Context management | Compact-by-default outputs reduced workflow context from 80KB to 5-10KB |
+| Tool count | 78 tools is manageable with clear naming and instructions |
+| Pine Script development | Strongest use case — compile-error-fix loop accelerates iteration |
+| Real-time data | Streaming is better for human monitoring than agent consumption |
+| Agent reliability | Varies significantly by model and context length |
 
-78 tools seems excessive, but with clear MCP server instructions and a `CLAUDE.md` decision tree, Claude consistently selects the right tools. The key is descriptive tool names and the instruction block — not reducing tool count.
-
-### Pine Script Development is the Strongest Use Case
-
-The compile → error → fix loop is where agent assistance provides the most value. Pine Script has unusual semantics that even experienced programmers struggle with. Having an agent that can read errors, understand the language, and propose fixes significantly accelerates development.
-
-### Streaming Reveals Agent Latency Issues
-
-When streaming data changes faster than the agent can respond, the agent's reasoning becomes stale. This is a fundamental limitation of request-response LLM architectures operating on real-time data. The practical solution is using streaming for human monitoring (piped to dashboards) rather than agent consumption.
+---
 
 ## Limitations
 
-- Depends on undocumented internal APIs subject to change without notice
+- Depends on undocumented internal TradingView APIs that change without notice
 - Not suitable for production automated trading
-- Agent performance varies significantly by model and context length
-- Real-time streaming introduces race conditions in agent reasoning
-- TradingView Desktop updates can break any tool at any time
+- Agent performance varies significantly by model and available context length
+- Real-time data introduces fundamental latency challenges for LLM reasoning
 - No formal evaluation framework — findings are observational
+
+---
 
 ## Related Work
 
