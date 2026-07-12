@@ -33,19 +33,39 @@ const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
 console.log('Scanned: '+d.scanned+' | Passed: '+d.passed+' | Failed: '+d.failed+' | TF: '+d.timeframe+' | HTF: '+(d.htf||'-'));
 console.log('');
 if (d.top_results && d.top_results.length > 0) {
-  console.log('Rank  Symbol              Dir     MTFSc  Rel    Entropy  Persist  VolR  Move%  HTF_Trend  State');
+  console.log('Rank  Symbol              Dir     MTFSc  Rel    Entropy  Persist  VolR  Move%  HTF_Trend  State        Priority');
   d.top_results.forEach((r,i) => {
+    const mtf=r.mtf_score||0;
+    const ent=r.entropy||99;
+    const rel=r.reliability||0;
+    const vr=r.volume_ratio||0;
+    const htfT=r.htf_context?(r.htf_context.trend||'--'):'--';
+    const dir=r.direction||'--';
+
+    let priority;
+    if (mtf > 0.5 && ent < 1.0 && htfT === dir) {
+      priority='PRIMARY';
+    } else if (rel > 0.4 && htfT === 'NEUTRAL') {
+      priority='SECONDARY';
+    } else if (htfT !== '--' && htfT !== dir && htfT !== 'NEUTRAL') {
+      priority=(vr > 1.0 && ent < 0.8) ? 'EDGE' : 'SKIP';
+    } else if (mtf > 0.3 && ent < 1.5 && vr > 0.5) {
+      priority='WATCH';
+    } else {
+      priority='SKIP';
+    }
+
     const sym=(r.symbol||'').replace('BINANCE:','').padEnd(18).substring(0,18);
-    const dir=(r.direction||'--').padEnd(5);
-    const mtf=((r.mtf_score||0)*100).toFixed(0).padStart(6);
-    const rel=((r.reliability||0)*100).toFixed(0).padStart(5);
-    const ent=(r.entropy||0).toFixed(2).padStart(7);
+    const dirP=(dir||'--').padEnd(5);
+    const mtfP=(mtf*100).toFixed(0).padStart(6);
+    const relP=(rel*100).toFixed(0).padStart(5);
+    const entP=(ent).toFixed(2).padStart(7);
     const per=(r.momentum_persistence||0).toFixed(3).padStart(7);
-    const vr=(r.volume_ratio||0).toFixed(1).padStart(5);
+    const vrP=(vr).toFixed(1).padStart(5);
     const mv=(r.total_move_pct||0).toFixed(1).padStart(6);
-    const htfT=r.htf_context?(r.htf_context.trend||'--').padEnd(9):''.padEnd(9);
+    const htfP=htfT.padEnd(9);
     const st=(r.last_state||'').padEnd(12);
-    console.log(' '+(i+1+']').padStart(4)+' '+sym+' '+dir+' '+mtf+' '+rel+' '+ent+' '+per+' '+vr+' '+mv+'  '+htfT+' '+st);
+    console.log(' '+(i+1+']').padStart(4)+' '+sym+' '+dirP+' '+mtfP+' '+relP+' '+entP+' '+per+' '+vrP+' '+mv+'  '+htfP+' '+st+priority);
   });
 } else {
   console.log('No candidates passed filters.');

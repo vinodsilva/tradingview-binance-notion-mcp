@@ -295,11 +295,11 @@ Steps:
 1. `draw_clear()` — remove all existing drawings first
 2. `chart_get_state()` → get indicator entity IDs from `studies[]`, store list
 3. Hide all indicators via `indicator_toggle_visibility(entity_id, false)` for each study — ensures clean chart with only annotations
-4. Draw entry, stop, targets, sweep levels, S/D zones, OBs, FVGs, forecast line
+4. Draw **anchor level** (purple, thickest line — the structural reference) + entry, stop, targets, sweep levels, S/D zones, OBs, FVGs, forecast line
 5. `capture_screenshot(filename="setup")` — save annotated chart (clean, no indicators)
 6. Re-show all indicators via `indicator_toggle_visibility(entity_id, true)` for each study
 
-See `_execution.md` section 8 (Draw Trade on Chart) for complete drawing specification.
+The **anchor level** is the PRIMARY annotation — it defines where the limit entry is placed and where the stop is measured from. See `_execution.md` section 9 (Auto Chart Drawing) for complete drawing specification with anchor-level formatting.
 
 ---
 
@@ -320,22 +320,24 @@ TP1 = nearest target (conservative). TP2 = primary structural target. TP3 = runn
 
 ---
 
-### Entry Considerations
+### Entry Considerations — Solid Anchor Model
 
+- **Primary: SOLID_ANCHOR_HUNT** — identify best structural anchor (OB / FVG CE / S/D zone boundary / OTE 0.618-0.786), place LIMIT entry at anchor level, wait for price to hunt it
 - HTF direction aligned OR inverse sweep with HTF liquidity confirmed
-- liquidity sweep confirmed
-- volume expansion OR absorption
+- liquidity sweep confirmed (or anchor at sweep retest level)
+- volume expansion OR absorption at anchor
 - RSI not extreme (in trend context)
 - momentum aligned with direction (no regular divergence against)
 - S/D zone not fully mitigated
-- valid entry model (OB / FVG / OTE / S/D Zone / Wyckoff Spring/Upthrust / Elliott Wave 3)
+- valid entry anchor (quality ≥ 60, preferably 80+ with 2+ converging types)
 
 ---
 
 ## EXECUTION MODE
 
-- Market OR limit retest
-- No chasing beyond reasonable range
+- **LIMIT at anchor** — place limit order at the anchor price, let price come to you
+- Fallback: market on sweep retest (only if no valid anchor identified)
+- No chasing beyond reasonable range (0.5 avg_range from anchor)
 
 ---
 

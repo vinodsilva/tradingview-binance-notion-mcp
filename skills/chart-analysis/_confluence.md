@@ -82,6 +82,7 @@ If step 1 is missing → flag as NO_LIQUIDITY, reduced confidence
 
 Allowed setups:
 
+- SOLID ANCHOR HUNT (highest probability limit entry — anchor quality ≥ 80, multiple converging anchor types at same level, price expected to return to anchor)
 - LIQUIDITY RECLAIM (best reversal model)
 - FVG RETURN (inefficiency fill)
 - ORDER BLOCK MITIGATION
@@ -125,6 +126,10 @@ Where:
 - MTF volatility regime comparison (consistent compression across TFs = breakout pending)
 - Wyckoff phase completion (spring/upthrust confirmed = higher P(win))
 - Elliott Wave position (Wave 3 entry = highest conviction)
+- **Anchor quality score** (anchor grade SOLID = +15%, VALID = +5%, WEAK = 0%, NOISE = -10%)
+- **Anchor convergence count** (3+ converging anchor types at same level = +10%, 2 types = +5%, 1 = 0%)
+- **Anchor freshness** (0 retests = +10%, 1 retest = 0%, 2+ retests = -10%)
+- **Anchor proximity** (price within 1 avg_range of anchor = +5%, within 0.5 avg_range = +10%)
 
 ### R:
 Defined from real structure + fib, in priority order:
@@ -190,6 +195,16 @@ A+ and A preferred for execution. B/C viable with strong supporting factors.
 | Re-accumulation | Continuation up |
 | Redistribution | Continuation down |
 | Phase incomplete | Wait |
+
+## Anchor Quality Impact on Setup:
+| Anchor Type Combination | Effect |
+|------------------------|--------|
+| OB + FVG + OTE at same level | EXTREME confluence — highest probability limit entry |
+| OB + FVG at same level | STRONG — valid limit entry |
+| S/D zone + OB at same level | STRONG — zone boundary + order block aligned |
+| OTE + premium/discount extreme | VALID — mean reversion setup |
+| Single anchor only | WEAK — requires additional filter |
+| No valid anchor identified | LIMIT ENTRY NOT RECOMMENDED — use market on sweep only |
 
 ---
 
@@ -350,20 +365,24 @@ Score factors present vs missing. Flag gaps. Produce recommendation with confide
 
 # 15. DECISION MATRIX
 
-| Condition | Output |
-|------|--------|
-| All aligned (A+/A setup) | ENTER LONG / SHORT |
-| Inverse sweep (D/W conflict + HTF liquidity) | ENTER LONG / SHORT |
-| Wyckoff Spring/Upthrust confirmed | ENTER LONG / SHORT |
-| Elliott Wave 3 entry at OTE zone | ENTER LONG / SHORT |
-| Supply/Demand fresh zone + sweep | ENTER LONG / SHORT |
-| Breaker block retest + structure shift | ENTER LONG / SHORT |
-| Partial alignment | WAIT |
-| Conflict signals without HTF sweep | WAIT |
-| No liquidity event | ANALYZE (low confidence) |
-| Stale setup | WAIT |
-| S/D zone fully mitigated | WAIT — avoid zone entry |
-| Momentum divergence against | WAIT — divergence warns |
+| Condition | Output | Entry Model |
+|-----------|--------|-------------|
+| All aligned (A+/A setup) | ENTER LONG / SHORT | Limit at anchor |
+| Solid anchor (grade ≥ 80, 2+ convergence) | ENTER LONG / SHORT | LIMIT at anchor level |
+| Valid anchor (grade 60-79) + sweep | ENTER LONG / SHORT | Limit at anchor on retest |
+| Inverse sweep + solid anchor at reclaim level | ENTER LONG / SHORT | Limit at anchor |
+| Wyckoff Spring/Upthrust confirmed | ENTER LONG / SHORT | Limit at spring/upthrust level |
+| Elliott Wave 3 entry at OTE zone | ENTER LONG / SHORT | Limit at OTE fib level |
+| Supply/Demand fresh zone + sweep | ENTER LONG / SHORT | Limit at zone boundary |
+| Breaker block retest + structure shift | ENTER LONG / SHORT | Limit at breaker level |
+| Valid anchor but price far (>2 avg_range) | WAIT | Limit not placed — price too far |
+| Partial alignment, no solid anchor | WAIT | Market on sweep only |
+| Conflict signals without HTF sweep | WAIT | No entry |
+| No liquidity event + no anchor | ANALYZE (low confidence) | No entry |
+| Stale setup | WAIT | No entry |
+| S/D zone fully mitigated | WAIT — avoid zone entry | No entry |
+| Momentum divergence against | WAIT — divergence warns | No entry |
+| Single anchor, no convergence, no sweep | WAIT | Monitor only |
 
 ---
 
@@ -373,7 +392,7 @@ Score factors present vs missing. Flag gaps. Produce recommendation with confide
 {
   "decision": "ENTER_LONG | ENTER_SHORT | WAIT | ANALYZE",
 
-  "setup_type": "LIQUIDITY_RECLAIM | FVG | OB | OTE",
+  "setup_type": "SOLID_ANCHOR_HUNT | LIQUIDITY_RECLAIM | FVG | OB | OTE",
 
   "grade": "A+ | A | B | C",
 
@@ -383,7 +402,18 @@ Score factors present vs missing. Flag gaps. Produce recommendation with confide
 
   "liquidity_quality": "HTF | SESSION | INTERNAL",
 
-  "setup_source": "LIQUIDITY_RECLAIM | FVG | OB | OTE | SUPPLY_ZONE | DEMAND_ZONE | WYCKOFF | ELLIOTT_WAVE | BREAKER_BLOCK | INDUCEMENT | CISD",
+  "anchor": {
+    "price": 0,
+    "type": "ORDER_BLOCK | FVG_CE | SD_ZONE | OTE | SWEEP | PD_ARRAY | POC",
+    "quality": 0,
+    "grade": "SOLID | VALID | WEAK | NOISE",
+    "convergence_types": [],
+    "convergence_count": 0,
+    "retest_count": 0,
+    "entry_model": "LIMIT_BUY | LIMIT_SELL | MARKET_ON_SWEEP"
+  },
+
+  "setup_source": "SOLID_ANCHOR_HUNT | LIQUIDITY_RECLAIM | FVG | OB | OTE | SUPPLY_ZONE | DEMAND_ZONE | WYCKOFF | ELLIOTT_WAVE | BREAKER_BLOCK | INDUCEMENT | CISD",
 
   "momentum_alignment": "ALIGNED | CONFLICT | NEUTRAL",
 
@@ -418,6 +448,8 @@ Score factors present vs missing. Flag gaps. Produce recommendation with confide
 
   "invalidations": [
     "opposite liquidity sweep",
+    "anchor level blown through (>0.5 avg_range beyond)",
+    "anchor retest count exceeded (3+)",
     "structure failure",
     "volume contradiction",
     "S/D zone fully mitigated",

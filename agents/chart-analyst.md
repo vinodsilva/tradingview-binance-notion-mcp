@@ -1,7 +1,6 @@
 ---
 name: chart-analyst
 description: Full institutional trading pipeline — orchestrates setup, volume, supply/demand, structure, fib, momentum, confluence, sizing, execution, and reporting. Run for directional trade analysis.
-model: sonnet
 tools:
   - "*"
 ---

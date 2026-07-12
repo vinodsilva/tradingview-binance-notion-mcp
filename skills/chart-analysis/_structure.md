@@ -224,7 +224,83 @@ Detection:
 
 ---
 
-# 5. DISPLACEMENT ENGINE
+# 5. SOLID ANCHOR IDENTIFICATION — LIMIT ENTRY REFERENCE POINTS
+
+## ROLE
+
+Solid anchors are structural price levels where institutional orders are concentrated — the reference points for placing limit entries rather than chasing price.
+
+## ANCHOR TYPES (RANKED BY RELIABILITY)
+
+| Rank | Anchor Type | Definition | Limit Entry |
+|------|-------------|------------|-------------|
+| 1 | FRESH ORDER BLOCK | Untested OB from recent displacement | Limit buy at OB low (bullish), limit sell at OB high (bearish) |
+| 2 | FVG MIDPOINT (CE) | Consequent Encroachment of an untested FVG | Limit at CE level (midpoint of FVG) |
+| 3 | UNMITIGATED S/D ZONE BOUNDARY | Fresh supply/demand zone edge nearest to price | Limit at zone high (supply) or zone low (demand) |
+| 4 | OTE 0.705 LEVEL | Fibonacci retracement from HTF swing | Limit at 0.618-0.786 zone, priority at 0.705 |
+| 5 | LIQUIDITY SWEEP LEVEL | Price level where stops were taken and reversed | Limit at sweep + small buffer (limit fills on retest) |
+| 6 | PREMIUM/DISCOUNT ARRAY EXTREME | 0.79 (extreme premium) or 0.21 (extreme discount) | Limit at array boundary for mean reversion |
+| 7 | POC / VALUE AREA BOUNDARY | Volume profile high-volume node or VAH/VAL | Limit at POC (equilibrium reversion) or VAL/VAH |
+
+## ANCHOR QUALITY SCORING (0-100)
+
+Each anchor scored on:
+
+| Criterion | Weight | Max Points |
+|-----------|--------|-----------|
+| Freshness (0 retests = max) | 0.25 | 25 |
+| Multi-TF alignment (same level on 3+ TFs) | 0.20 | 20 |
+| Volume at creation (>1.5x = max) | 0.15 | 15 |
+| Proximity to current price (<2 avg_range = max) | 0.15 | 15 |
+| Recent liquidity sweep nearby | 0.10 | 10 |
+| No opposing anchor within 1 avg_range | 0.10 | 10 |
+| Clean structure (clear swing point) | 0.05 | 5 |
+
+| Score | Grade | Action |
+|-------|-------|--------|
+| 80+ | SOLID | Primary anchor — place limit entry |
+| 60-79 | VALID | Secondary anchor — use if primary triggered |
+| 40-59 | WEAK | Monitor — not for limit entry |
+| <40 | NOISE | Ignore |
+
+## ANCHOR HUNTING RULES
+
+- The strongest entry is when MULTIPLE anchor types converge at the same price level (e.g., OB low = FVG CE = OTE 0.705)
+- An anchor is "hunted" when price reaches within 0.1 avg_range of the level — this is the limit entry trigger zone
+- If price blows through the anchor without reaction (>0.5 avg_range beyond) → anchor is invalidated
+- Anchors decay with each retest: 1st retest = -20% quality, 2nd = -50%, 3rd = discard
+- Always combine with pending liquidity — an anchor that also has untapped liquidity on the other side is the highest probability
+- Anchors must align with the HTF direction (or be part of an inverse sweep setup) — never place a limit entry at an anchor that fights the established HTF structure
+
+## ANCHOR → LIMIT ENTRY MAPPING
+
+```
+Bullish Limit Entry:
+  Anchor: Fresh demand zone low, bullish OB low, or OTE 0.618-0.786 from HTF swing
+  Limit: place at anchor level
+  Trigger: price reaches anchor, rejection candle forms (pin, engulfing), volume confirms
+  Stop: below anchor low by 0.3 avg_range buffer
+  TP1: next structural resistance / EQH / opposite zone boundary
+
+Bearish Limit Entry:
+  Anchor: Fresh supply zone high, bearish OB high, or OTE 0.618-0.786 from HTF swing
+  Limit: place at anchor level
+  Trigger: price reaches anchor, rejection candle forms (pin, engulfing), volume confirms
+  Stop: above anchor high by 0.3 avg_range buffer
+  TP1: next structural support / EQL / opposite zone boundary
+```
+
+## ANCHOR INVALIDATION
+
+An anchor is invalid if:
+- Price closes more than 0.5 avg_range beyond the anchor level without reversal
+- The structural level that created the anchor is broken (e.g., the swing high that defined the fib retracement is breached)
+- Opposite liquidity sweep appears before price reaches the anchor
+- Volume at anchor breach confirms the move (closing > 1.5x, close beyond)
+
+---
+
+# 6. DISPLACEMENT ENGINE
 
 Valid if:
 - ≥1.5x avg_range candle
@@ -415,6 +491,26 @@ Minimum confidence for valid structure: 60
     "voids": [],
     "runs": [],
     "pending": []
+  },
+
+  "anchors": [
+    {
+      "price": 0,
+      "type": "ORDER_BLOCK | FVG_CE | SD_ZONE | OTE | SWEEP | PD_ARRAY | POC",
+      "direction": "LONG | SHORT",
+      "quality": 0,
+      "grade": "SOLID | VALID | WEAK | NOISE",
+      "retest_count": 0,
+      "multi_tf_count": 0,
+      "convergence_types": []
+    }
+  ],
+
+  "best_anchor": {
+    "price": 0,
+    "type": "",
+    "quality": 0,
+    "entry_model": "LIMIT_BUY | LIMIT_SELL | NONE"
   },
 
   "displacement": {
