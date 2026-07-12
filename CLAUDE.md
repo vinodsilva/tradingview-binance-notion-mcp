@@ -1,6 +1,6 @@
 # TradingView MCP — Claude Instructions
 
-80 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222), plus Telegram notification tools.
+78 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222), plus Telegram notification tools.
 
 ## Decision Tree — Which Tool When
 
@@ -34,25 +34,28 @@ Use `study_filter` parameter to target a specific indicator by name substring (e
 7. `capture_screenshot` → visual confirmation
 
 ### "Full trading analysis" (chart-analysis workflow)
-Run the complete 6-step pipeline: acquire data per TF → volume analysis → structure analysis → market nature classification + trade generation → sizing → execution + report.
+Act as **chart-analyst** to run the complete 10-stage pipeline: _setup → _volume → _supply_demand → _structure → _fib → _momentum → _confluence → _sizing → _execution → _report.
 
-**Trigger phrases** — say any of these to start the workflow:
-- "run full analysis on ES1!"
-- "analyze the current chart"
+**Trigger phrases:**
+- "Act as **chart-analyst** and analyze ES1!"
+- "run full analysis on the current chart"
 - "full chart analysis on BTCUSD"
 
-Read `skills/chart-analysis/SKILL.md` and follow it step by step. This is the primary workflow for any directional trade decision. Modules `_volume.md`, `_confluence.md`, `_sizing.md`, `_execution.md`, `_report.md` provide detailed reference for each step.
+Read `skills/chart-analysis/SKILL.md` and follow it step by step. This is the primary workflow for any directional trade decision. Each pipeline module has a separate reference file in `skills/chart-analysis/_*.md`.
 
-### "Use an agent" (role-based execution)
-Agents (`agents/`) are role definitions — they tell me *who to be* and *what tools to use*. Skills (`skills/`) are the detailed *how-to* reference. Use agents by saying:
-- "Act as **chart-analyst** and analyze ES1!" → full institutional pipeline (10-stage)
-- "Act as **coin-scout** on Binance" → momentum scan for explosive crypto moves
-- "Act as **market-scanner** on NQ, ES, YM" → multi-symbol scan for setups
-- "Act as **performance-analyst**" → strategy backtest report
-- "Act as **replay-coach**" → interactive replay mode practice
-- "Act as **pine-coder**" → Pine Script dev loop (write → compile → fix)
+### "Run an agent" (role-based execution)
+Agents (`agents/`) are role definitions — they tell me *who to be* and *what tools to use*. Skills (`skills/`) are the detailed *how-to* reference. Each agent maps to exactly one skill:
 
-Each agent reads its corresponding skill for the step-by-step workflow. Agents directory: `agents/chart-analyst.md`, `agents/coin-scout.md`, `agents/market-scanner.md`, `agents/performance-analyst.md`, `agents/replay-coach.md`, `agents/pine-coder.md`.
+| Trigger phrase | Agent | Skill | Purpose |
+|---------------|-------|-------|---------|
+| "Act as **chart-analyst** on ES1!" | [`agents/chart-analyst.md`](agents/chart-analyst.md) | [`skills/chart-analysis/SKILL.md`](skills/chart-analysis/SKILL.md) | 10-stage institutional pipeline: setup → volume → structure → fib → momentum → confluence → sizing → execution → report |
+| "Act as **coin-scout** on Binance" | [`agents/coin-selection.md`](agents/coin-selection.md) | [`skills/coin-selection/SKILL.md`](skills/coin-selection/SKILL.md) | Markov chain MTF momentum scanner — screen top coins, rank by entropy + HTF alignment |
+| "Act as **market-scanner** on NQ, ES, YM" | [`agents/market-scanner.md`](agents/market-scanner.md) | [`skills/multi-symbol-scan/SKILL.md`](skills/multi-symbol-scan/SKILL.md) | Iterative multi-market scan — cycles crypto → futures → stocks until grade A/B found |
+| "Act as **performance-analyst**" | [`agents/performance-analyst.md`](agents/performance-analyst.md) | [`skills/strategy-report/SKILL.md`](skills/strategy-report/SKILL.md) | Strategy backtest analysis: metrics, trade list, equity curve, recommendations |
+| "Act as **replay-coach**" | [`agents/replay-coach.md`](agents/replay-coach.md) | [`skills/replay-practice/SKILL.md`](skills/replay-practice/SKILL.md) | Guide practice trading in replay mode: step bars, take trades, track P&L |
+| "Act as **pine-coder**" | [`agents/pine-coder.md`](agents/pine-coder.md) | [`skills/pine-develop/SKILL.md`](skills/pine-develop/SKILL.md) | Pine Script dev loop: write → compile → fix errors → iterate |
+
+**Agent hierarchy:** Market-scanner and coin-scout both feed into chart-analyst for final grading. The chart-analyst pipeline is the single source of truth for directional trade decisions. All other agents are discovery or support layers.
 
 ### "Change the chart"
 - `chart_set_symbol` → switch ticker (e.g., "AAPL", "ES1!", "NYMEX:CL1!")
@@ -82,6 +85,14 @@ Each agent reads its corresponding skill for the step-by-step workflow. Agents d
 
 ### "Screen multiple symbols"
 - `batch_run` with `symbols: ["ES1!", "NQ1!", "YM1!"]` and `action: "screenshot"` or `"get_ohlcv"`
+
+### "Scan crypto coins for momentum"
+Use the **coin-selection** workflow:
+1. Fetch top Binance USDT pairs by volume (via curl or `watchlist_get`)
+2. Run `coin_scan(timeframe: 240, htf: D, volume_min: 5, top_n: 10)` for Markov chain analysis
+3. Pass top candidates to chart-analyst for full pipeline grading
+
+See `skills/coin-selection/SKILL.md` and `agents/coin-selection.md` for full details.
 
 ### "Draw on the chart"
 - `draw_shape` → horizontal_line, trend_line, rectangle, text (pass point + optional point2)
