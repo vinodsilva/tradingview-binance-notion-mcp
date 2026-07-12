@@ -61,7 +61,7 @@ Claude Code / AI Agent  ←→  MCP Server (stdio)  ←→  CDP (localhost:9222)
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/<vinod99>/tradingview-mcp.git
+git clone https://github.com/vinod99/tradingview-mcp.git
 cd tradingview-mcp
 npm install
 

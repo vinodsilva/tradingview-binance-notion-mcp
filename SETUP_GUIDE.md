@@ -15,7 +15,7 @@ This guide walks through installing and configuring the TradingView MCP Bridge f
 ## Step 1: Clone and Install
 
 ```bash
-git clone https://github.com/<your-username>/tradingview-mcp.git
+git clone https://github.com/vinod99/tradingview-mcp.git
 cd tradingview-mcp
 npm install
 ```

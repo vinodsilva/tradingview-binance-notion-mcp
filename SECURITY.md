@@ -20,7 +20,7 @@ This project connects to a locally running TradingView Desktop instance via Chro
 
 If you discover a security vulnerability, please report it privately:
 
-1. Open a [GitHub Security Advisory](https://github.com/<your-username>/tradingview-mcp/security/advisories/new)
+1. Open a [GitHub Security Advisory](https://github.com/vinod99/tradingview-mcp/security/advisories/new)
 2. Provide a clear description of the issue, reproduction steps, and potential impact
 
 **Do not** open a public issue for security vulnerabilities.
