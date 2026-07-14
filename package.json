@@ -30,8 +30,11 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "binance-api-node": "^0.13.10",
     "chrome-remote-interface": "^0.33.2",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "mongodb": "^7.5.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "electron": "^43.1.0"

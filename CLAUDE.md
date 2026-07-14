@@ -122,6 +122,42 @@ Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` env vars.
 - `tv_launch` → auto-detect and launch TradingView with CDP on Mac/Win/Linux
 - `tv_health_check` → verify connection is working
 
+### "Work with Binance" (market data & trading)
+Requires `BINANCE_API_KEY` and `BINANCE_API_SECRET` in `.env`. Set `BINANCE_TESTNET=true` for testnet.
+
+**Market Data:**
+- `get_price` → current price for a symbol (e.g., BTCUSDT)
+- `get_orderbook` → order book depth (bids/asks)
+- `get_klines` → candlestick data (all intervals: 1m to 1M)
+- `get_24hr_ticker` → 24hr price change statistics
+
+**Account & Orders:**
+- `get_account_info` → balances, commissions, permissions
+- `get_open_orders` → current open orders (optionally filtered by symbol)
+- `get_order_history` → historical orders for a symbol
+
+**Spot Trading:**
+- `place_order` → MARKET or LIMIT orders (warns on mainnet)
+- `cancel_order` → cancel by order ID
+- `cancel_all_orders` → cancel all open orders for a symbol
+
+**Futures:**
+- `get_futures_account_info` → wallet balance, margin, P&L
+- `get_futures_positions` → active positions with liquidation risk
+- `get_futures_open_orders` → open futures orders
+- `place_futures_order` → MARKET/LIMIT/STOP_MARKET/TAKE_PROFIT_MARKET orders
+- `cancel_futures_orders` → cancel all orders for a symbol
+- `set_futures_leverage` → set leverage (1-125x)
+- `set_futures_margin_type` → ISOLATED or CROSSED
+
+**Risk Management:**
+- `get_risk_config` → current risk limits (position size, daily loss, max positions)
+
+**HARD RULE — Every futures trade MUST include SL + TP placed simultaneously with entry.**
+- Never open a position without setting stop loss and take profit orders at the same time
+- Use `STOP_MARKET` for SL, `TAKE_PROFIT_MARKET` for TP
+- Split TP across 2 levels: TP1 (50% position) + TP2 (50% runner)
+
 ## Context Management Rules
 
 These tools can return large payloads. Follow these rules to avoid context bloat:
@@ -163,6 +199,11 @@ These tools can return large payloads. Follow these rules to avoid context bloat
 
 ```
 Claude Code ←→ MCP Server (stdio) ←→ CDP (localhost:9222) ←→ TradingView Desktop (Electron)
+                                         ←→ Binance API (REST)
 ```
 
 Pine graphics path: `study._graphics._primitivesCollection.dwglines.get('lines').get(false)._primitivesDataById`
+
+### Binance Tool Architecture
+
+Binance tools are registered in the same MCP server as TradingView tools (`src/tools/binance.js`). The Binance client is initialized lazily on first tool call using `BINANCE_API_KEY` and `BINANCE_API_SECRET` from `.env`. Testnet/mainnet is controlled by `BINANCE_TESTNET`. Risk defaults are read from `.env` (`FUTURES_*` variables).
