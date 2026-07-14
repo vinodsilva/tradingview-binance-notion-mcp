@@ -1,6 +1,6 @@
-# TradingView MCP Bridge
+# TradingView + Binance MCP
 
-> **Connect AI agents to your TradingView Desktop chart** — 78 tools for reading, analyzing, and controlling your locally running TradingView app via the Model Context Protocol.
+> **Connect AI agents to your TradingView chart and Binance account** — 101 tools via the Model Context Protocol.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js)](https://nodejs.org)
@@ -10,50 +10,19 @@
 
 ## Overview
 
-TradingView MCP Bridge is an [MCP server](https://modelcontextprotocol.io) that gives AI assistants eyes and hands on your TradingView Desktop chart. It bridges the gap between LLM agents and professional-grade charting software — enabling AI-assisted chart analysis, Pine Script development, multi-timeframe workflows, and replay-based practice trading.
+An [MCP server](https://modelcontextprotocol.io) that gives AI assistants access to two systems:
+
+| Side | Connection | What you can do |
+|------|-----------|-----------------|
+| **TradingView** | CDP (localhost:9222) | Read charts, indicators, Pine Script drawings. Control symbol, timeframe, layout. Develop Pine Script. Practice with replay. |
+| **Binance** | REST API | Market data (price, order book, klines). Spot trading (MARKET/LIMIT). Futures trading (leverage, margin, conditional orders, positions). |
 
 ```
-Claude Code / AI Agent  ←→  MCP Server (stdio)  ←→  CDP (localhost:9222)  ←→  TradingView Desktop (Electron)
+Claude Code / AI Agent ←→ MCP Server (stdio) ←→ CDP ─── TradingView Desktop
+                                                  ←→ REST ── Binance (spot + futures)
 ```
 
-**All data stays on your machine.** The server communicates exclusively with your locally running TradingView Desktop instance via Chrome DevTools Protocol (CDP) — a standard debugging interface built into every Chromium/Electron application. No connection to external servers, no data redistribution, no cloud processing.
-
----
-
-## Features
-
-### 📊 Chart Intelligence
-- Read real-time quotes, OHLCV data, and indicator values (RSI, MACD, Bollinger Bands, Volume, etc.)
-- Extract support/resistance levels, zone boundaries, and annotations from Pine Script indicators
-- Read structured tables and labels from custom indicators (session stats, analytics dashboards)
-
-### 🧩 Multi-Timeframe Analysis
-- Automated 10-stage institutional analysis pipeline: setup → volume → structure → confluence → sizing → execution → reporting
-- Wyckoff phase detection, order blocks, FVGs, Fibonacci OTE zones, liquidity sweeps
-- Supply/demand zone mapping, Elliott Wave overlays, divergence detection
-
-### 🧪 Pine Script Development
-- Full compile-error-fix loop: write code, inject into editor, compile, read errors, iterate
-- Offline static analysis — catches array bounds, unguarded calls, and logic bugs before compiling
-- Server-side compilation validation without needing the chart open
-
-### 🎯 Precision Execution
-- Solid Anchor Model — place limit entries at structural levels (order blocks, FVGs, S/D zones, OTE 0.705)
-- Let price come to you instead of chasing: structural stop placement, target derivation from liquidity pools
-- Full auto-drawing with entry, stop, targets, sweep levels, zone rectangles, and forecast projection on clean chart
-
-### 📐 Multi-Pane & Multi-Tab
-- Set up grids (2×2, 3×1, 2+1, 6, 8) with different symbols per pane
-- Manage multiple chart tabs, switch between saved layouts
-- Monitor symbols simultaneously across panes
-
-### 🎮 Replay Practice
-- Step through historical bars, execute simulated trades, practice entries and exits
-- Auto-play mode with configurable speed for timed practice sessions
-
-### 🖥️ CLI
-- Every MCP tool is also a `tv` CLI command with JSON output for piping
-- Streaming commands for real-time monitoring: quotes, bars, indicator values, price levels
+**All data stays on your machine.** The TradingView connection is purely local via Chrome DevTools Protocol. Binance API keys are stored in `.env` and never transmitted outside.
 
 ---
 
@@ -65,7 +34,7 @@ git clone https://github.com/vinod99/tradingview-mcp.git
 cd tradingview-mcp
 npm install
 
-# 2. Launch TradingView with Chrome DevTools Protocol enabled
+# 2. Launch TradingView with Chrome DevTools Protocol
 /Applications/TradingView.app/Contents/MacOS/TradingView --remote-debugging-port=9222
 
 # 3. Add to Claude Code config (~/.claude/.mcp.json)
@@ -79,112 +48,231 @@ npm install
 }
 ```
 
-Then ask Claude: *"Use tv_health_check to verify TradingView is connected."*
+### Binance Setup
+
+```bash
+# Add to .env in project root:
+BINANCE_API_KEY=your_api_key
+BINANCE_API_SECRET=your_api_secret
+BINANCE_TESTNET=true       # false for mainnet
+FUTURES_LEVERAGE=5
+FUTURES_MARGIN_TYPE=CROSSED
+```
+
+### Telegram Setup (optional)
+
+```bash
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+```
+
+Then ask Claude: *"tv_health_check"*
 
 ---
 
-## Tool Reference
+## Tool Reference — TradingView (83 tools)
 
 ### Chart Reading
 | Tool | Purpose |
 |------|---------|
-| `chart_get_state` | Get symbol, timeframe, all indicator names + entity IDs |
-| `data_get_study_values` | Read current RSI, MACD, BB, EMA values from all indicators |
-| `quote_get` | Get latest price, OHLC, volume |
-| `data_get_ohlcv` | Get price bars (use `summary: true` for compact stats) |
+| `chart_get_state` | Symbol, timeframe, indicator names + entity IDs |
+| `data_get_study_values` | RSI, MACD, BB, EMA values from all indicators |
+| `quote_get` | Latest price, OHLC, volume |
+| `data_get_ohlcv` | Price bars (use `summary: true`) |
+| `depth_get` | Order book / DOM |
+| `symbol_info` | Symbol metadata |
 
-### Custom Indicator Data (Pine Drawings)
+### Pine Script Drawings
 | Tool | Purpose |
 |------|---------|
-| `data_get_pine_lines` | Read deduplicated horizontal price levels (S/R, session levels) |
-| `data_get_pine_labels` | Read text annotations with prices ("PDH 24550", "Bias Long ✓") |
-| `data_get_pine_tables` | Read formatted table data (session stats, analytics) |
-| `data_get_pine_boxes` | Read price zones as `{high, low}` pairs |
+| `data_get_pine_lines` | Horizontal price levels from indicators |
+| `data_get_pine_labels` | Text annotations with prices |
+| `data_get_pine_tables` | Formatted table data |
+| `data_get_pine_boxes` | Price zones as `{high, low}` pairs |
 
 ### Chart Control
 | Tool | Purpose |
 |------|---------|
-| `chart_set_symbol` | Change ticker (BTCUSD, AAPL, ES1!) |
-| `chart_set_timeframe` | Change resolution (1, 5, 15, 60, D, W) |
-| `chart_set_type` | Change style (Candles, HeikinAshi, Line, Area, Renko) |
+| `chart_set_symbol` | Change ticker |
+| `chart_set_timeframe` | Change resolution |
+| `chart_set_type` | Candles, HeikinAshi, Line, Renko... |
 | `chart_manage_indicator` | Add/remove indicators |
-| `chart_scroll_to_date` | Jump to a date |
-| `indicator_set_inputs` | Change indicator settings |
+| `chart_scroll_to_date` | Jump to date |
+| `chart_set_visible_range` | Zoom to date range |
+| `chart_get_visible_range` | Get visible range |
+| `symbol_search` | Search symbols |
 
 ### Pine Script Development
-| Step | Tool |
-|------|------|
-| Inject code | `pine_set_source` |
-| Compile | `pine_smart_compile` |
-| Read errors | `pine_get_errors` |
-| Read console | `pine_get_console` |
-| Validate offline | `pine_analyze` (no chart needed) |
-| Validate server-side | `pine_check` (no chart needed) |
-
-### Multi-Pane Layouts
 | Tool | Purpose |
 |------|---------|
-| `pane_list` | List all panes with symbols |
-| `pane_set_layout` | Change grid: `s`, `2h`, `2v`, `4`, `6`, `8` |
-| `pane_focus` | Focus a specific pane |
-| `pane_set_symbol` | Set symbol on any pane |
+| `pine_set_source` | Inject code |
+| `pine_smart_compile` | Compile + error check |
+| `pine_get_errors` | Read errors |
+| `pine_get_console` | Read `log.info()` output |
+| `pine_get_source` | Read current code |
+| `pine_compile` | Compile script |
+| `pine_save` | Save to cloud |
+| `pine_new` | Create blank script |
+| `pine_open` | Load saved script |
+| `pine_list_scripts` | List saved scripts |
+| `pine_analyze` | Static analysis (offline) |
+| `pine_check` | Server-side validation |
+
+### Strategy Tester
+| Tool | Purpose |
+|------|---------|
+| `data_get_strategy_results` | Performance metrics |
+| `data_get_trades` | Trade list |
+| `data_get_equity` | Equity curve |
+
+### Indicators
+| Tool | Purpose |
+|------|---------|
+| `indicator_set_inputs` | Change indicator settings |
+| `indicator_toggle_visibility` | Show/hide indicator |
+
+### Multi-Pane
+| Tool | Purpose |
+|------|---------|
+| `pane_list` | List panes with symbols |
+| `pane_set_layout` | Grid: s, 2h, 2v, 4, 6, 8 |
+| `pane_focus` | Focus pane by index |
+| `pane_set_symbol` | Set symbol on pane |
+
+### Multi-Tab
+| Tool | Purpose |
+|------|---------|
+| `tab_list` | List open tabs |
+| `tab_new` | New tab |
+| `tab_close` | Close tab |
+| `tab_switch` | Switch tab |
 
 ### Replay Mode
-| Step | Tool |
-|------|------|
-| Enter replay | `replay_start` |
-| Advance bar | `replay_step` |
-| Trade | `replay_trade` |
-| Check status | `replay_status` |
-| Return to live | `replay_stop` |
-
-### Drawing & Automation
 | Tool | Purpose |
 |------|---------|
-| `draw_shape` | Draw lines, rectangles, text on chart |
-| `draw_forecast` | Draw projected trend with targets |
-| `draw_position` | Draw long/short position with SL and targets |
-| `capture_screenshot` | Screenshot (full, chart, strategy_tester) |
-| `alert_create / list / delete` | Manage price alerts |
-| `batch_run` | Execute across multiple symbols/timeframes |
-| `ui_open_panel / ui_click / ui_evaluate` | UI automation |
+| `replay_start` | Enter replay |
+| `replay_step` | Advance bar |
+| `replay_autoplay` | Auto-play |
+| `replay_trade` | Execute trade |
+| `replay_status` | Position, P&L, date |
+| `replay_stop` | Return to live |
 
-### Connection & Diagnostics
+### Drawings
 | Tool | Purpose |
 |------|---------|
-| `tv_launch` | Auto-detect and launch TradingView with CDP |
-| `tv_health_check` | Verify CDP connection and chart state |
-| `tv_discover` | Report available API endpoints |
-| `tv_ui_state` | Get current UI panel state |
+| `draw_shape` | Lines, rectangles, text |
+| `draw_forecast` | Projected trend + targets |
+| `draw_position` | Position with SL/targets |
+| `draw_list` | List drawings |
+| `draw_get_properties` | Drawing details |
+| `draw_remove_one` | Remove drawing |
+| `draw_clear` | Remove all |
+
+### Watchlist
+| Tool | Purpose |
+|------|---------|
+| `watchlist_get` | List with prices + change% |
+| `watchlist_add` | Add symbol |
+
+### Alerts
+| Tool | Purpose |
+|------|---------|
+| `alert_create` | Price alert |
+| `alert_list` | Active alerts |
+| `alert_delete` | Delete alerts |
+
+### Screenshots
+| Tool | Purpose |
+|------|---------|
+| `capture_screenshot` | Full, chart, or strategy_tester |
+
+### UI Automation
+| Tool | Purpose |
+|------|---------|
+| `ui_click` | Click by label/text/class |
+| `ui_open_panel` | Open/close panels |
+| `ui_fullscreen` | Toggle fullscreen |
+| `ui_keyboard` | Press keys/shortcuts |
+| `ui_type_text` | Type into focused element |
+| `ui_hover` | Hover element |
+| `ui_scroll` | Scroll page |
+| `ui_mouse_click` | Click at coordinates |
+| `ui_find_element` | Find by text/css |
+| `ui_evaluate` | Execute JS in page |
+| `layout_list` | Saved layouts |
+| `layout_switch` | Switch layout |
+
+### Batch
+| Tool | Purpose |
+|------|---------|
+| `batch_run` | Run action across multiple symbols/timeframes |
+
+### Coin Scanner
+| Tool | Purpose |
+|------|---------|
+| `coin_scan` | Markov chain momentum scan |
+
+### Telegram
+| Tool | Purpose |
+|------|---------|
+| `telegram_send_message` | Send text |
+| `telegram_send_photo` | Send screenshot + caption |
+
+### Connection
+| Tool | Purpose |
+|------|---------|
+| `tv_launch` | Auto-launch TV with CDP |
+| `tv_health_check` | Verify connection |
+| `tv_discover` | API endpoint discovery |
+| `tv_ui_state` | UI panel state |
 
 ---
 
-## Full Chart Analysis Pipeline
+## Tool Reference — Binance (18 tools)
 
-The project includes a complete institutional-grade chart analysis framework organized as a 10-stage pipeline:
+### Market Data
+| Tool | Purpose |
+|------|---------|
+| `get_price` | Current price |
+| `get_orderbook` | Order book depth |
+| `get_klines` | Candlesticks (1m to 1M) |
+| `get_24hr_ticker` | 24hr stats |
 
-```
-_setup → _volume → _supply_demand → _structure → _fib → _momentum → _confluence → _sizing → _execution → _report
-```
+### Account
+| Tool | Purpose |
+|------|---------|
+| `get_account_info` | Balances, permissions |
 
-Each module is a pure function — takes structured input from the previous stage, computes one thing, passes output forward. The pipeline covers Wyckoff analysis, order blocks, FVGs, Fibonacci OTE zones, liquidity theory, divergence detection, EV-based confluence scoring, and position sizing. See `skills/chart-analysis/` for the full specification.
+### Spot Orders
+| Tool | Purpose |
+|------|---------|
+| `get_open_orders` | Open orders |
+| `get_order_history` | Historical orders |
+| `place_order` | MARKET or LIMIT |
+| `cancel_order` | Cancel by ID |
+| `cancel_all_orders` | Cancel all for symbol |
 
----
+### Futures Account
+| Tool | Purpose |
+|------|---------|
+| `get_futures_account_info` | Wallet, margin, P&L |
+| `get_futures_positions` | Active positions |
+| `get_futures_open_orders` | Open futures orders |
 
-## CLI
+### Futures Orders
+| Tool | Purpose |
+|------|---------|
+| `place_futures_order` | MARKET / LIMIT / STOP_MARKET / TAKE_PROFIT_MARKET |
+| `cancel_futures_orders` | Cancel all for symbol |
+| `set_futures_leverage` | Set 1-125x |
+| `set_futures_margin_type` | ISOLATED or CROSSED |
 
-Every MCP tool is accessible as a `tv` CLI command with JSON output:
+### Risk
+| Tool | Purpose |
+|------|---------|
+| `get_risk_config` | Position size, daily loss, max positions |
 
-```bash
-npm link    # install globally
-tv status   # check connection
-tv quote    # current price
-tv symbol AAPL    # change symbol
-tv ohlcv --summary # price summary
-tv screenshot -r chart   # capture chart
-tv pane layout 2x2    # 4-chart grid
-tv stream quote | jq '.close'   # monitor price
-```
+> **Conditional orders note:** STOP_MARKET and TAKE_PROFIT_MARKET return `algoId`/`algoStatus`/`triggerPrice` instead of `orderId`/`status`/`stopPrice`. The tool normalizes both. These orders are NOT visible via `get_futures_open_orders`.
 
 ---
 
@@ -192,56 +280,72 @@ tv stream quote | jq '.close'   # monitor price
 
 ```
                     ┌─────────────────────┐
-                    │   Claude Code / AI   │
+                    │    Claude Code / AI   │
                     └──────────┬──────────┘
-                               │ MCP (stdio)
+                               │ MCP stdio
                     ┌──────────▼──────────┐
                     │   tradingview-mcp    │
-                    │    MCP Server         │
-                    │  (78 tools, 30 CLI)   │
-                    └──────────┬──────────┘
-                               │ CDP (localhost:9222)
-                    ┌──────────▼──────────┐
-                    │  TradingView Desktop │
-                    │    (Electron app)     │
-                    └─────────────────────┘
+                    │    101 tools + CLI   │
+                    └──────┬─────────┬────┘
+                           │         │
+              ┌──────CDP───┤         ├───REST────┐
+              │            │         │           │
+     ┌────────▼─────┐     │         │    ┌──────▼──────┐
+     │ TradingView   │     │         │    │   Binance    │
+     │ Desktop       │     │         │    │ fapi + api   │
+     │ (Electron)    │     │         │    └─────────────┘
+     └───────────────┘     │         │
+                           │         │
+     ┌───────────────┐     │         │
+     │ Telegram Bot  │◄────┘         │
+     └───────────────┘               │
+                                     │
+     ┌───────────────┐               │
+     │ Coin Scanner  │◄──────────────┘
+     │ (Markov Chain)│
+     └───────────────┘
 ```
 
-- **Transport**: MCP over stdio (78 tools) + CLI (`tv` command)
-- **Connection**: Chrome DevTools Protocol on localhost:9222
-- **Dependencies**: `@modelcontextprotocol/sdk`, `chrome-remote-interface`
+- **Transport**: MCP stdio + CLI (`tv` command)
+- **TradingView**: CDP (localhost:9222) — chart, indicators, Pine Script, replay, drawings, UI automation
+- **Binance**: REST API — market data, spot orders, futures (leverage, margin, conditional orders, positions)
+- **Telegram**: Bot API — send messages and screenshots
+- **Dependencies**: `@modelcontextprotocol/sdk`, `chrome-remote-interface`, `binance-api-node`, `dotenv`
 - **Platform**: macOS, Windows, Linux
+
+---
+
+## Full Chart Analysis Pipeline
+
+10-stage institutional pipeline triggered via the **chart-analyst** agent:
+
+```
+_setup → _volume → _supply_demand → _structure → _fib → _momentum → _confluence → _sizing → _execution → _report
+```
+
+Covers Wyckoff analysis, order blocks, FVGs, Fibonacci OTE zones, liquidity theory, divergence detection, EV-based confluence scoring, and position sizing. See `skills/chart-analysis/`. Trigger: *"Act as **chart-analyst** on ES1!"*
 
 ---
 
 ## Security
 
 > [!CAUTION]
-> This tool uses Chrome DevTools Protocol (CDP), the same debugging interface used by VS Code, Slack, and Discord. The debug port (`9222`) must be explicitly enabled — it is disabled by default. Never expose this port to your network or the internet.
+> CDP debug port (`9222`) is disabled by default — must be explicitly enabled. Never expose to network/internet.
 
-- All communication is localhost-only
-- No data is transmitted, stored, or redistributed externally
-- Requires a valid TradingView subscription — does not bypass any paywall
-- Requires explicit user action to enable the debug port
+- All connections are localhost-only (TradingView) or direct API (Binance)
+- Binance API keys stored in `.env`, never transmitted externally
+- No data redistribution or cloud processing
 
-See [SECURITY.md](SECURITY.md) for the full security policy.
+See [SECURITY.md](SECURITY.md).
 
 ---
 
 ## Disclaimer
 
-This project is for **personal, educational, and research purposes only**. It is not affiliated with, endorsed by, or associated with TradingView Inc. or Anthropic.
-
-By using this software, you acknowledge:
-1. You are solely responsible for ensuring compliance with [TradingView's Terms of Use](https://www.tradingview.com/policies/)
-2. TradingView's terms restrict automated interaction with their platform — this tool's use of CDP may conflict
-3. This tool accesses undocumented internal TradingView interfaces that may break without notice
-4. You assume all risk of use
+For **personal, educational, and research purposes only**. Not affiliated with TradingView Inc., Binance, or Anthropic. Ensure compliance with [TradingView's Terms of Use](https://www.tradingview.com/policies/). CDP-based interaction may conflict with those terms.
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
-The MIT license applies to the source code of this project only. It does not grant any rights to TradingView's software, data, trademarks, or intellectual property.
+MIT — see [LICENSE](LICENSE). Covers project source code only, not third-party software, data, or trademarks.

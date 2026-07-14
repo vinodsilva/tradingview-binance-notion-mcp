@@ -1,6 +1,6 @@
 # TradingView MCP — Claude Instructions
 
-78 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222), plus Telegram notification tools.
+101 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222), plus Telegram notification tools and Binance trading.
 
 ## Decision Tree — Which Tool When
 
@@ -152,6 +152,8 @@ Requires `BINANCE_API_KEY` and `BINANCE_API_SECRET` in `.env`. Set `BINANCE_TEST
 
 **Risk Management:**
 - `get_risk_config` → current risk limits (position size, daily loss, max positions)
+
+> **API note:** Binance conditional orders (STOP_MARKET, TAKE_PROFIT_MARKET) return `algoId`/`algoStatus`/`triggerPrice` in their response instead of `orderId`/`status`/`stopPrice`. The tool normalizes these — check the `orderId` field (it will contain the `algoId` value for conditional orders). Conditional orders are NOT visible via `get_futures_open_orders` — only via Binance UI or TradingView.
 
 **HARD RULE — Every futures trade MUST include SL + TP placed simultaneously with entry.**
 - Never open a position without setting stop loss and take profit orders at the same time

@@ -69,12 +69,32 @@ Can an LLM agent write, debug, and iterate on Pine Script effectively? Pine Scri
 | Pine Script development | Strongest use case — compile-error-fix loop accelerates iteration |
 | Real-time data | Streaming is better for human monitoring than agent consumption |
 | Agent reliability | Varies significantly by model and context length |
+| Conditional order responses | Binance algo order endpoints return `algoId`/`algoStatus` not `orderId`/`status` — tool must handle both response shapes |
+
+---
+
+### 8. Conditional Order API Divergence
+
+Binance Futures uses separate REST endpoints for regular orders (`/fapi/v1/order`) and conditional/stop orders (`/fapi/v1/algoOrder`). These endpoints return structurally different response payloads — regular orders return `orderId`/`status`, while conditional orders return `algoId`/`algoStatus`.
+
+**Key finding:** The `binance-api-node` library routes all order types through a single `futuresOrder()` method but the response shape depends on the order type. Initial tool code only extracted `orderId` and `status`, making conditional orders appear to fail when they actually succeeded. This is a classic API abstraction leak.
+
+**Fix applied:** Updated `place_futures_order` to check for both `orderId` and `algoId`, both `status` and `algoStatus`, and both `stopPrice` and `triggerPrice`. Successful conditional orders now properly report their `algoId` and `algoStatus: "NEW"`.
+
+### 9. Conditional Order Visibility
+
+Binance does not expose a GET endpoint to list open conditional/algo orders. The `GET /fapi/v1/algoOpenOrders` returns 404. Only account-level position data and unconditional `GET /fapi/v1/openOrders` are available.
+
+This means **conditional stop/tp orders cannot be programmatically verified** after placement using standard Binance REST API. The only way to confirm they exist is through the TradingView UI or Binance web interface.
+
+**Workaround:** Cancel all orders before re-placing to ensure clean state.
 
 ---
 
 ## Limitations
 
 - Depends on undocumented internal TradingView APIs that change without notice
+- Binance conditional orders (SL/TP) cannot be queried via REST after placement — only cancelled and re-placed
 - Not suitable for production automated trading
 - Agent performance varies significantly by model and available context length
 - Real-time data introduces fundamental latency challenges for LLM reasoning

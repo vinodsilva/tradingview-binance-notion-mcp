@@ -295,10 +295,17 @@ export function registerBinanceTools(server) {
       if (type === 'LIMIT' && !params.timeInForce) params.timeInForce = 'GTC';
       const result = await getClient().futuresOrder(params);
       return jsonResult({
-        symbol: result.symbol, orderId: result.orderId, price: result.price,
-        origQty: result.origQty, executedQty: result.executedQty,
-        status: result.status, type: result.type, side: result.side,
-        positionSide: result.positionSide, reduceOnly: result.reduceOnly,
+        symbol: result.symbol,
+        orderId: result.orderId || result.algoId,
+        price: result.price,
+        origQty: result.origQty || result.quantity,
+        executedQty: result.executedQty,
+        status: result.status || result.algoStatus,
+        type: result.type || result.orderType,
+        side: result.side,
+        positionSide: result.positionSide,
+        reduceOnly: result.reduceOnly,
+        stopPrice: result.stopPrice || result.triggerPrice,
         timestamp: Date.now(),
       });
     } catch (err) { return jsonResult({ success: false, error: err.message }, true); }
