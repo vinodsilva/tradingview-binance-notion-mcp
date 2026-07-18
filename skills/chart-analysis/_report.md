@@ -440,7 +440,60 @@ Support:    {PRICE} ({SOURCE})
 
 ---
 
-# 16. CRITICAL RULE
+# 16. NOTION TRADE JOURNAL
+
+## MCP TOOLS
+
+- `notion_check_schema` — verify your database columns are set up correctly (run once to confirm)
+- `notion_log_trade` — log an executed trade entry to the journal
+- `notion_update_exit` — update a trade log with exit price, P&L, and result
+
+## WORKFLOW
+
+After execution produces trade output (ENTER_LONG / ENTER_SHORT):
+
+```
+1. Build trade data from confluence + sizing + execution outputs
+2. Run notion_check_schema to confirm DB is accessible
+3. notion_log_trade with all trade parameters
+4. When trade closes → notion_update_exit with exit details
+```
+
+## REQUIRED NOTION DATABASE COLUMNS
+
+The trade database must have these columns (types in parentheses):
+
+| Column | Type | Required |
+|--------|------|----------|
+| Symbol | Title | ✅ |
+| Direction | Select | ✅ |
+| Date | Date | ✅ |
+| Grade | Select | |
+| Win Prob | Number | |
+| Setup Type | Select | |
+| Entry Price | Number | |
+| Stop Loss | Number | |
+| TP1 | Number | |
+| TP2 | Number | |
+| TP3 | Number | |
+| RR | Number | |
+| Leverage | Number | |
+| Conviction | Select | |
+| Risk % | Number | |
+| Liquidity Quality | Select | |
+| Reasons | Text | |
+| Exit Price | Number | |
+| P&L | Number | |
+| P&L % | Number | |
+| Result | Select | |
+| Exit Reason | Select | |
+| Notes | Text | |
+
+Run `notion_check_schema` to see if your DB columns match.
+
+---
+
+# 17. CRITICAL RULE
 
 You must NEVER:
 - modify upstream decision

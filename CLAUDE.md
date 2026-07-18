@@ -1,6 +1,6 @@
 # TradingView MCP — Claude Instructions
 
-101 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222), plus Telegram notification tools and Binance trading.
+104 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222), plus Telegram notification tools and Binance trading.
 
 ## Decision Tree — Which Tool When
 
@@ -111,6 +111,13 @@ Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` env vars.
 - `telegram_send_photo` → send screenshot + trade reasoning as photo with caption
 - Use after `capture_screenshot` to share chart analysis to your group/channel
 
+### "Log trades to Notion journal"
+Requires `NOTION_API_KEY` and `NOTION_TRADE_DB_ID` env vars.
+- `notion_log_trade` → log an executed trade entry to the Notion trade journal
+- `notion_update_exit` → update a trade log with exit price/P&L when closed
+- `notion_check_schema` → verify your Notion database columns match expectations
+- See `skills/chart-analysis/_report.md` section 16 for the full workflow and required DB schema
+
 ### "Navigate the UI"
 - `ui_open_panel` → open/close pine-editor, strategy-tester, watchlist, alerts, trading
 - `ui_click` → click buttons by aria-label, text, or data-name
@@ -196,6 +203,7 @@ These tools can return large payloads. Follow these rules to avoid context bloat
 - OHLCV capped at 500 bars, trades at 20 per request
 - Pine labels capped at 50 per study by default (pass `max_labels` to override)
 - Telegram tools require `TELEGRAM_BOT_TOKEN` (from @BotFather) and `TELEGRAM_CHAT_ID` (comma-separated for multiple chats) env vars
+- Notion tools require `NOTION_API_KEY` (from https://www.notion.so/my-integrations) and `NOTION_TRADE_DB_ID` env vars
 
 ## Architecture
 

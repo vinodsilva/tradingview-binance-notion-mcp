@@ -301,6 +301,10 @@ Then ask Claude: *"tv_health_check"*
      └───────────────┘               │
                                      │
      ┌───────────────┐               │
+     │ Notion API    │◄────┘         │
+     └───────────────┘               │
+                                     │
+     ┌───────────────┐               │
      │ Coin Scanner  │◄──────────────┘
      │ (Markov Chain)│
      └───────────────┘
@@ -310,6 +314,7 @@ Then ask Claude: *"tv_health_check"*
 - **TradingView**: CDP (localhost:9222) — chart, indicators, Pine Script, replay, drawings, UI automation
 - **Binance**: REST API — market data, spot orders, futures (leverage, margin, conditional orders, positions)
 - **Telegram**: Bot API — send messages and screenshots
+- **Notion**: REST API — log trades to trade journal database
 - **Dependencies**: `@modelcontextprotocol/sdk`, `chrome-remote-interface`, `binance-api-node`, `dotenv`
 - **Platform**: macOS, Windows, Linux
 
