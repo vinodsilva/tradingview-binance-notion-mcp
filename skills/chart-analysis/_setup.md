@@ -38,7 +38,7 @@ _setup → _volume → _supply_demand → _structure → _fib → _momentum → 
 
 ## PRIMARY
 - OHLCV (all TFs)
-- `data_get_study_values()` → Volume (current + SMA), RSI indicator values
+- `data_get_study_values()` → Volume (current + SMA), MACD + ATR + RSI combo values
 
 ## SECONDARY
 - Mxwll labels (HH/HL/LH/LL/BOS/CHoCH)
@@ -53,7 +53,7 @@ Indicators are read **per timeframe**, not just once. Each downstream engine rec
 
 | Indicator | Acquired Per TF | Feeds Engine |
 |-----------|-----------------|--------------|
-| RSI | Yes | Momentum, Volume (light) |
+| MACD + ATR + RSI | Yes | Momentum, Volatility, Volume (light) |
 | Volume SMA20 | Yes | Volume Engine |
 | Mxwll Suite | Entry TF only | Structure |
 
@@ -106,7 +106,7 @@ Each downstream engine requires specific indicators to be visible on chart.
 | Indicator | Chart Name | Source | Feeds Engine | Priority | Measures
 |-----------|----------------|--------|--------------|----------|---------
 | Volume | "Volume" | Standard (length=20) | Volume Engine | HARD | Volume SMA20 baseline, volume_ratio per bar
-| RSI | "RSI Divergence Indicator" | Chart study | Momentum, Volume (light) | HARD | RSI value, divergence context
+| MACD + ATR + RSI | "MACD + ATR + RSI" | Community indicator | Momentum, Volatility, Volume (light) | HARD | RSI, MACD, ATR values |
 | Mxwll Suite | "Mxwll Suite" | Custom Pine Script | Structure, Fib, Momentum | HARD | BOS/CHoCH, HH/HL/LH/LL, fib levels, liquidity zones, session tables
 
 ## Priority Definitions
@@ -219,7 +219,7 @@ Compression across sessions → expansion pending.
     "W": {
       "ohlcv": {},
       "indicators": {
-        "rsi": { "value": 0 },
+        "combo": { "rsi": 0, "macd": 0, "macd_signal": 0, "macd_histogram": 0, "atr": 0 },
         "volume": { "current": 0, "sma20": 0, "ratio": 0 }
       },
       "quote": {}
@@ -321,7 +321,7 @@ Before multi-TF acquisition, verify all required indicators are on chart:
 3. Cross-reference against the INDICATOR REGISTRY (section 4)
 4. For each HARD indicator missing:
    - Volume → `chart_manage_indicator(action="add", indicator="Volume")`
-   - RSI Divergence Indicator → manually add (custom Pine may require manual setup)
+   - MACD + ATR + RSI → `chart_manage_indicator(action="add", indicator="MACD + ATR + RSI")` (if unavailable, RSI/ATR derived from OHLCV)
 5. If Mxwll Suite missing → FLAG_DEGRADED (cannot be added via API)
 6. Re-run `chart_get_state()` → confirm all present
 7. Update `data_quality.indicators_ready` and `data_quality.missing_indicators`
@@ -336,7 +336,7 @@ For each timeframe in [W, D, 4H, 1H, 15m, 5m]:
 3. `data_get_study_values()` → read all visible indicator values
    Store in `timeframes[TF].indicators`:
    - **Volume**: current volume, SMA20 baseline
-   - **RSI**: RSI value
+   - **Combo**: RSI, MACD, MACD signal, MACD histogram, ATR
 4. `quote_get()` → current price snapshot
    Store in `timeframes[TF].quote`
 
@@ -357,7 +357,7 @@ Each timeframe in the output stores:
 {
   "ohlcv": { "summary": {}, "bars": [] },
   "indicators": {
-    "rsi": { "value": 0, "zone": "" },
+    "combo": { "rsi": 0, "macd": 0, "macd_signal": 0, "macd_histogram": 0, "atr": 0 },
     "volume": { "current": 0, "sma20": 0, "ratio": 0 }
   },
   "quote": {
@@ -373,8 +373,10 @@ Each timeframe in the output stores:
 ## Data Integrity Check
 
 For each timeframe, verify indicator data is populated:
-- `timeframes[TF].indicators.rsi.value` !== undefined
+- `timeframes[TF].indicators.combo.rsi` !== undefined
 - `timeframes[TF].indicators.volume.sma20` !== undefined
+
+If combo indicator unavailable: compute RSI from OHLCV close prices, flag as DEGRADED with reduced confidence.
 
 Missing per-TF indicator values → FLAG_DEGRADED on that TF, pipeline continues.
 

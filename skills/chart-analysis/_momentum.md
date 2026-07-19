@@ -34,7 +34,7 @@ _fib → _momentum → _confluence
 # INPUTS
 
 From `_setup`:
-- Per-TF indicator data — `setup.timeframes[TF].indicators`: RSI values
+- Per-TF indicator data — `setup.timeframes[TF].indicators.combo`: RSI, MACD, ATR values
 - Per-TF OHLCV — `setup.timeframes[TF].ohlcv`
 - Per-TF quote — `setup.timeframes[TF].quote`
 
@@ -51,15 +51,15 @@ From `_fib`:
 Data is pre-fetched per TF by `_setup`. Access per TF:
 
 ```
-setup.timeframes["W"].indicators.rsi     → { value, zone }
-setup.timeframes["D"].indicators.rsi     → { value }
-setup.timeframes["4H"].indicators.rsi    → { value }
-setup.timeframes["1H"].indicators.rsi    → { value }
-setup.timeframes["15m"].indicators.rsi   → { value }
-setup.timeframes["5m"].indicators.rsi    → { value }
+setup.timeframes["W"].indicators.combo.rsi    → RSI value
+setup.timeframes["D"].indicators.combo.rsi    → RSI value
+setup.timeframes["4H"].indicators.combo.rsi   → RSI value
+setup.timeframes["1H"].indicators.combo.rsi   → RSI value
+setup.timeframes["15m"].indicators.combo.rsi  → RSI value
+setup.timeframes["5m"].indicators.combo.rsi   → RSI value
 ```
 
-Each TF has its own RSI value. This enables proper MTF momentum analysis.
+Each TF has its own RSI value from the combo indicator. MACD and ATR are also available per TF via `setup.timeframes[TF].indicators.combo.macd`/`macd_signal`/`macd_histogram`/`atr`. This enables proper MTF momentum + volatility analysis.
 
 ---
 

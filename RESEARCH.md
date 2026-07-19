@@ -30,11 +30,11 @@ Market data changes continuously. A quote fetched at the start of an agent's rea
 
 ### 3. Tool Granularity
 
-Should an agent have one `read_chart` tool or 78 granular tools? This project chose granularity — separate tools for quote, OHLCV, indicator values, pine lines, pine labels, pine tables, pine boxes, etc.
+Should an agent have one `read_chart` tool or 104 granular tools? This project chose granularity — separate tools for quote, OHLCV, indicator values, pine lines, pine labels, pine tables, pine boxes, Binance spot/futures trading, Telegram signals, Notion journaling, etc.
 
 **The tradeoff:** Granular tools give the agent precise control and small payloads, but require the agent to know which tool to call (solved via MCP server instructions and a decision-tree config file). A single coarse tool would be simpler but would waste context on unneeded data.
 
-**Key finding:** 78 tools does not confuse the agent. With descriptive tool names and clear instructions, Claude consistently selects the right tools. The key is the instruction block — not reducing tool count.
+**Key finding:** 104 tools does not confuse the agent. With descriptive tool names and clear instructions, Claude consistently selects the right tools. The key is the instruction block — not reducing tool count.
 
 ### 4. Failure Transparency
 
@@ -52,7 +52,36 @@ The boundary between "agent acts autonomously" and "agent proposes, human confir
 
 When an agent monitors multiple symbols simultaneously (via multi-pane layouts + streaming), how does it reason about cross-asset relationships? Can it identify divergences, correlations, or relative strength from raw OHLCV across 4 panes?
 
-### 7. Pine Script as Agent Output
+### 7. Indicator Composition Strategy
+
+When defining agent workflows that interact with chart indicators, how should indicators be composed? This project evolved from standalone indicators (separate RSI, Volume indicators) to a combined approach.
+
+**Key decision:** Replace standalone RSI indicator with a "MACD + ATR + RSI" combo indicator for multi-timeframe analysis. The combo provides ATR (volatility context), MACD (trend/momentum), and RSI (overbought/oversold) from a single indicator, reducing the number of studies the agent must query. Volume remains a standalone indicator because it requires SMA20 computation for divergence analysis.
+
+**Per-TF data shape:**
+```
+indicators: {
+  combo: { rsi, macd, macd_signal, macd_histogram, atr },
+  volume: { current, sma20, ratio }
+}
+```
+
+**Key finding:** The combo indicator has a display toggle for RSI (`in_1`). When disabled, RSI values are absent from `data_get_study_values` output. Agents must verify the RSI display is enabled before reading, or call `indicator_set_inputs` to enable it. This is a subtle but critical point — an indicator can be "on the chart" but not returning all its values.
+
+### 8. Agent Orchestration Architecture
+
+Beyond individual tools, how should agents be structured for complex multi-step workflows? This project evolved a two-layer architecture:
+
+- **Agents** (`agents/`): Role definitions that tell the LLM *who to be* and *what skill to use*
+- **Skills** (`skills/`): Detailed procedural references that define *how to execute* each workflow
+
+The chart-analyst agent runs a strict 10-stage pipeline — `_setup → _volume → _supply_demand → _structure → _fib → _momentum → _confluence → _sizing → _execution → _report`. Each stage is a separate skill file with its own role definition, inputs, outputs, and edge case handling.
+
+**Agent hierarchy:** Discovery agents (coin-scout, market-scanner) feed into chart-analyst for final grading. The chart-analyst pipeline is the single source of truth for directional trade decisions. All other agents are discovery or support layers.
+
+**Key finding:** Strict pipeline ordering with explicit stage boundaries prevents the agent from skipping steps or hallucinating intermediate results. Each stage's output is the next stage's input, creating a chain of reasoning that can be audited and debugged at any point.
+
+### 9. Pine Script as Agent Output
 
 Can an LLM agent write, debug, and iterate on Pine Script effectively? Pine Script is a domain-specific language with unusual constraints (series types, historical referencing, repainting behavior).
 
@@ -65,7 +94,7 @@ Can an LLM agent write, debug, and iterate on Pine Script effectively? Pine Scri
 | Area | Finding |
 |------|---------|
 | Context management | Compact-by-default outputs reduced workflow context from 80KB to 5-10KB |
-| Tool count | 78 tools is manageable with clear naming and instructions |
+| Tool count | 104 tools is manageable with clear naming and instructions |
 | Pine Script development | Strongest use case — compile-error-fix loop accelerates iteration |
 | Real-time data | Streaming is better for human monitoring than agent consumption |
 | Agent reliability | Varies significantly by model and context length |
@@ -73,7 +102,7 @@ Can an LLM agent write, debug, and iterate on Pine Script effectively? Pine Scri
 
 ---
 
-### 8. Conditional Order API Divergence
+### 10. Conditional Order API Divergence
 
 Binance Futures uses separate REST endpoints for regular orders (`/fapi/v1/order`) and conditional/stop orders (`/fapi/v1/algoOrder`). These endpoints return structurally different response payloads — regular orders return `orderId`/`status`, while conditional orders return `algoId`/`algoStatus`.
 
@@ -81,13 +110,21 @@ Binance Futures uses separate REST endpoints for regular orders (`/fapi/v1/order
 
 **Fix applied:** Updated `place_futures_order` to check for both `orderId` and `algoId`, both `status` and `algoStatus`, and both `stopPrice` and `triggerPrice`. Successful conditional orders now properly report their `algoId` and `algoStatus: "NEW"`.
 
-### 9. Conditional Order Visibility
+### 11. Conditional Order Visibility
 
 Binance does not expose a GET endpoint to list open conditional/algo orders. The `GET /fapi/v1/algoOpenOrders` returns 404. Only account-level position data and unconditional `GET /fapi/v1/openOrders` are available.
 
 This means **conditional stop/tp orders cannot be programmatically verified** after placement using standard Binance REST API. The only way to confirm they exist is through the TradingView UI or Binance web interface.
 
 **Workaround:** Cancel all orders before re-placing to ensure clean state.
+
+### 12. Notion Trade Journal Integration
+
+Logging trades to a structured database introduces cross-system consistency challenges. When an agent logs a trade to Notion, the trade data must be structurally compatible with the Notion database schema, which has strict column types (Title, Select, Date, Number, Text).
+
+**Key finding:** Schema mismatches between the agent's output and the Notion database cause silent failures — the agent thinks it logged successfully but no entry appears. A `notion_check_schema` tool is essential to verify column compatibility before logging. The workflow is: `notion_check_schema` → `notion_log_trade` (entry) → `notion_update_exit` (close).
+
+The 22-column schema covers: Symbol, Direction, Date, Grade, Win Prob, Setup Type, Entry Price, Stop Loss, TP1-3, RR, Leverage, Conviction, Risk %, Liquidity Quality, Reasons, Exit Price, P&L, P&L %, Result, Exit Reason, Notes.
 
 ---
 

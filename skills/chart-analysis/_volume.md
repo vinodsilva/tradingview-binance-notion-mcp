@@ -41,7 +41,7 @@ _setup → _volume → _supply_demand → _structure → _fib → _momentum → 
 - OHLCV (all timeframes) — `setup.timeframes[TF].ohlcv`
 - Per-TF indicator data — `setup.timeframes[TF].indicators`:
   - `volume.current` + `volume.sma20` → compute `volume_ratio = current / sma20`
-  - `rsi.value` → momentum condition (OB/OS/divergence)
+  - `combo.rsi` → momentum condition (OB/OS/divergence)
 - `quote_get()` → current price, OHLCV snapshot
 - `setup.timeframes[TF].quote` — per-TF quote snapshot
 
@@ -58,7 +58,7 @@ Data is already pre-fetched per TF by `_setup`. Do NOT re-fetch. Use:
 
 ```
 setup.timeframes[TF].indicators.volume  → { current, sma20, ratio }
-setup.timeframes[TF].indicators.rsi     → { value }
+setup.timeframes[TF].indicators.combo.rsi  → RSI value
 ```
 
 Cross-reference Volume indicator SMA20 against raw OHLCV bars to validate. If Volume indicator values are unavailable, compute SMA20 manually from OHLCV bar data.

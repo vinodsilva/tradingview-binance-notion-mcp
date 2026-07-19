@@ -69,9 +69,9 @@ Before anything:
 - Verify OHLCV exists for all TFs
 - Verify volume integrity
 - Mxwll availability
-- Verify indicator registry — confirm Volume, RSI (RSI Divergence Indicator), Mxwll Suite are on chart
+- Verify indicator registry — confirm Volume, MACD+ATR+RSI combo, Mxwll Suite are on chart
 - Auto-add missing indicators via `chart_manage_indicator` (except Mxwll — requires manual setup)
-- **Acquire per-TF indicator data** — for each TF (W, D, 4H, 1H, 15m, 5m): switch timeframe, get OHLCV, then `data_get_study_values()` for RSI and Volume SMA values
+- **Acquire per-TF indicator data** — for each TF (W, D, 4H, 1H, 15m, 5m): switch timeframe, get OHLCV, then `data_get_study_values()` for MACD+ATR+RSI combo and Volume SMA values
 - **Verify MTF indicator completeness** — check `timeframes[TF].indicators` populated for all TFs
 - Establish time-based context (Kill Zones, Opening Range, Session Bias, Initial Balance)
 

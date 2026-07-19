@@ -132,7 +132,7 @@ Summarize:
 
 # 4. MULTI-TF SNAPSHOT
 
-| TF | RSI | Structure | Volume |
+| TF | Combo RSI | Structure | Volume |
 |----|-----|-----------|--------|
 | W | value / zone | trend + phase | regime |
 | D | value / zone | trend + phase | regime |
