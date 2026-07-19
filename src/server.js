@@ -28,7 +28,7 @@ const server = new McpServer(
     description: 'AI-assisted TradingView chart analysis and Pine Script development via Chrome DevTools Protocol',
   },
   {
-    instructions: `TradingView MCP — 101 tools for reading and controlling a live TradingView Desktop chart.
+    instructions: `TradingView MCP — 104 tools for reading and controlling a live TradingView Desktop chart.
 
 TOOL SELECTION GUIDE — use this to pick the right tool:
 
@@ -62,7 +62,11 @@ Replay: replay_start → replay_step → replay_trade → replay_status → repl
 Batch: batch_run → run action across multiple symbols/timeframes
 Drawing: draw_shape → horizontal_line, trend_line, rectangle, text
 Alerts: alert_create, alert_list, alert_delete
-Launch: tv_launch → auto-detect and start TradingView with CDP on any platform
+Connection: tv_health_check, tv_launch, tv_discover, tv_ui_state
+Binance spot: get_price, get_orderbook, get_klines, get_24hr_ticker, get_account_info, get_open_orders, get_order_history, place_order, cancel_order, cancel_all_orders
+Binance futures: get_futures_account_info, get_futures_positions, get_futures_open_orders, cancel_futures_orders, set_futures_leverage, set_futures_margin_type, place_futures_order, get_risk_config
+Telegram: telegram_send_message, telegram_send_photo
+Notion: notion_log_trade, notion_update_exit, notion_check_schema
 Panes: pane_list, pane_set_layout (s, 2h, 2v, 4, 6, 8), pane_focus, pane_set_symbol
 Tabs: tab_list, tab_new, tab_close, tab_switch
 

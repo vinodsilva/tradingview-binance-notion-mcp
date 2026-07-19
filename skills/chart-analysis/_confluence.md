@@ -58,6 +58,7 @@ Evaluate each condition. Flag concerns but continue analysis:
 - [ ] Displacement after sweep
 - [ ] Valid BOS or CHoCH
 - [ ] Volume expansion OR absorption
+- [ ] Order book imbalance confirms direction (or neutral)
 - [ ] D/W alignment or HTF liquidity sweep
 - [ ] Structure confidence evaluated
 
@@ -130,6 +131,9 @@ Where:
 - **Anchor convergence count** (3+ converging anchor types at same level = +10%, 2 types = +5%, 1 = 0%)
 - **Anchor freshness** (0 retests = +10%, 1 retest = 0%, 2+ retests = -10%)
 - **Anchor proximity** (price within 1 avg_range of anchor = +5%, within 0.5 avg_range = +10%)
+- **Order book imbalance confirms direction** (imbalance_ratio > 1.5 for long = +10%, < 0.5 for short = +10%)
+- **Order book zone confirmation** (bid stacking at demand zone = +10%, ask stacking at supply zone = +10%)
+- **Order book contradicts** (imbalance opposite direction = -10%, no stacking at structural level = -5%)
 
 ### R:
 Defined from real structure + fib, in priority order:

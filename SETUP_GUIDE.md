@@ -15,7 +15,7 @@ This guide walks through installing and configuring the TradingView MCP Bridge f
 ## Step 1: Clone and Install
 
 ```bash
-git clone https://github.com/vinod99/tradingview-mcp.git
+git clone https://github.com/vinodsilva/tradingview-binance-notion-mcp.git
 cd tradingview-mcp
 npm install
 ```
@@ -123,7 +123,34 @@ If `cdp_connected: false`, TradingView is not running with the debug port. Repea
 
 ---
 
-## Step 5: Install CLI (Optional)
+## Step 5: Configure Optional Integrations
+
+### Binance (Trading)
+
+Create a `.env` file in the project root:
+
+```bash
+# === BINANCE ===
+BINANCE_API_KEY=your_api_key
+BINANCE_API_SECRET=your_api_secret
+BINANCE_TESTNET=true               # set false for mainnet
+FUTURES_LEVERAGE=5
+FUTURES_MARGIN_TYPE=CROSSED
+
+# === TELEGRAM (optional — send signals) ===
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+
+# === NOTION (optional — trade journal) ===
+NOTION_API_KEY=your_notion_integration_token
+NOTION_TRADE_DB_ID=your_trade_database_id
+```
+
+Binance connects on first tool call (lazy initialization). Set `BINANCE_TESTNET=true` for practice.
+
+---
+
+## Step 6: Install CLI (Optional)
 
 ```bash
 npm link

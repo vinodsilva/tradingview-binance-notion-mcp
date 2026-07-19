@@ -72,7 +72,9 @@ Before anything:
 - Verify indicator registry — confirm Volume, MACD+ATR+RSI combo, Mxwll Suite are on chart
 - Auto-add missing indicators via `chart_manage_indicator` (except Mxwll — requires manual setup)
 - **Acquire per-TF indicator data** — for each TF (W, D, 4H, 1H, 15m, 5m): switch timeframe, get OHLCV, then `data_get_study_values()` for MACD+ATR+RSI combo and Volume SMA values
+- **Acquire order book** via `get_orderbook(symbol)` — bids, asks, stacking levels, imbalance (once, not per-TF)
 - **Verify MTF indicator completeness** — check `timeframes[TF].indicators` populated for all TFs
+- **Verify order book data** — check orderbook.bids and orderbook.asks exist
 - Establish time-based context (Kill Zones, Opening Range, Session Bias, Initial Balance)
 
 If `_setup.pipeline_status = DEGRADED`:
@@ -103,6 +105,7 @@ Execute `_supply_demand` using:
 - Premium/Discount arrays
 - Inducement and Engineered Liquidity detection
 - Price Action patterns (Pin Bar, Engulfing, Inside/Outside)
+- **Order book analysis**: bid/ask stacking, imbalance, gaps, wall absorption, institutional signatures, zone confirmation
 
 Pass S/D zones and OB/FVG levels to `_structure` for context.
 

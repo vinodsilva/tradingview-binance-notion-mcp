@@ -45,6 +45,11 @@ _setup → _volume → _supply_demand → _structure → _fib → _momentum → 
 - Mxwll table data (volume regime: 4-Hr/24-Hr Low/Normal/High)
 - `quote_get()` → current price snapshot
 
+## ORDER BOOK
+- `get_orderbook()` → live bid/ask stacking, imbalance, gaps from Binance
+- Acquired once per analysis (not per TF — order book is real-time, not timeframe-dependent)
+- Passed to `_supply_demand` for zone confirmation
+
 ## MTF INDICATOR DATA (CRITICAL CHANGE)
 
 Indicators are read **per timeframe**, not just once. Each downstream engine receives per-TF indicator values.
@@ -251,6 +256,15 @@ Compression across sessions → expansion pending.
     }
   },
 
+  "orderbook": {
+    "bid_stacking": [{ "price": 0, "volume": 0, "type": "LIGHT | MODERATE | HEAVY | EXTREME" }],
+    "ask_stacking": [{ "price": 0, "volume": 0, "type": "LIGHT | MODERATE | HEAVY | EXTREME" }],
+    "imbalance_ratio": 0,
+    "imbalance_bias": "BULLISH | BEARISH | NEUTRAL",
+    "gaps": [{ "high": 0, "low": 0 }],
+    "absorption_detected": false
+  },
+
   "mxwll": {
     "available": true,
     "labels": [],
@@ -342,7 +356,20 @@ For each timeframe in [W, D, 4H, 1H, 15m, 5m]:
 
 **Important**: Indicators are visible on all timeframes (they auto-adjust to chart resolution). Study values reflect the current TF's computation. This is the correct behavior — RSI on 4H is different from RSI on 15m.
 
-## Phase 3 — Mxwll Data (Entry TF)
+## Phase 3 — Order Book Acquisition
+
+After MTF indicator acquisition, capture live order book:
+
+1. `get_orderbook(symbol)` → full order book from Binance (bids + asks with volume at each price level)
+2. Compute order book metrics:
+   - **Bid stacking levels**: price levels where cumulative bid volume is 3x+ average
+   - **Ask stacking levels**: price levels where cumulative ask volume is 3x+ average
+   - **Imbalance ratio**: total bid volume / total ask volume
+   - **Gaps**: price zones with no significant orders
+   - **Wall absorption**: large walls being consumed
+3. Store in `orderbook` field of output structure
+
+## Phase 4 — Mxwll Data (Entry TF)
 
 5. `data_get_pine_lines(study_filter="Mxwll")` → Mxwll horizontal levels
 6. `data_get_pine_labels(study_filter="Mxwll")` → Mxwll structure labels (HH/HL/LH/LL/BOS/CHoCH)

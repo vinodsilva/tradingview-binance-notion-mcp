@@ -64,6 +64,7 @@ Agents (`agents/`) are role definitions — they tell me *who to be* and *what t
 - `chart_manage_indicator` → add or remove studies (use full name: "Relative Strength Index", not "RSI")
 - `chart_scroll_to_date` → jump to a date (ISO format: "2025-01-15")
 - `chart_set_visible_range` → zoom to exact date range (unix timestamps)
+- `chart_get_visible_range` → current visible date range
 
 ### "Work on Pine Script"
 1. `pine_set_source` → inject code into editor
@@ -74,6 +75,9 @@ Agents (`agents/`) are role definitions — they tell me *who to be* and *what t
 6. `pine_save` → save to TradingView cloud
 7. `pine_new` → create blank indicator/strategy/library
 8. `pine_open` → load a saved script by name
+9. `pine_list_scripts` → list all saved scripts
+10. `pine_analyze` → static analysis (catches bugs without compiling)
+11. `pine_check` → server-side validation (no chart needed)
 
 ### "Practice trading with replay"
 1. `replay_start` with `date: "2025-03-01"` → enter replay mode
@@ -99,6 +103,9 @@ See `skills/coin-selection/SKILL.md` and `agents/coin-selection.md` for full det
 - `draw_list` → see what's drawn
 - `draw_remove_one` → remove by ID
 - `draw_clear` → remove all
+- `draw_forecast` → projected trend with entry, targets, stop
+- `draw_position` → full position with entry, SL, multiple targets
+- `draw_get_properties` → details of a specific drawing
 
 ### "Manage alerts"
 - `alert_create` → set price alert (condition: "crossing", "greater_than", "less_than")
@@ -128,6 +135,8 @@ Requires `NOTION_API_KEY` and `NOTION_TRADE_DB_ID` env vars.
 ### "TradingView isn't running"
 - `tv_launch` → auto-detect and launch TradingView with CDP on Mac/Win/Linux
 - `tv_health_check` → verify connection is working
+- `tv_discover` → API endpoint discovery
+- `tv_ui_state` → panel visibility and button states
 
 ### "Work with Binance" (market data & trading)
 Requires `BINANCE_API_KEY` and `BINANCE_API_SECRET` in `.env`. Set `BINANCE_TESTNET=true` for testnet.
@@ -210,6 +219,8 @@ These tools can return large payloads. Follow these rules to avoid context bloat
 ```
 Claude Code ←→ MCP Server (stdio) ←→ CDP (localhost:9222) ←→ TradingView Desktop (Electron)
                                          ←→ Binance API (REST)
+                                         ←→ Telegram Bot API
+                                         ←→ Notion REST API
 ```
 
 Pine graphics path: `study._graphics._primitivesCollection.dwglines.get('lines').get(false)._primitivesDataById`
@@ -217,3 +228,11 @@ Pine graphics path: `study._graphics._primitivesCollection.dwglines.get('lines')
 ### Binance Tool Architecture
 
 Binance tools are registered in the same MCP server as TradingView tools (`src/tools/binance.js`). The Binance client is initialized lazily on first tool call using `BINANCE_API_KEY` and `BINANCE_API_SECRET` from `.env`. Testnet/mainnet is controlled by `BINANCE_TESTNET`. Risk defaults are read from `.env` (`FUTURES_*` variables).
+
+### Telegram Tools
+
+`telegram_send_message` and `telegram_send_photo` require `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` env vars. Used for trade signal distribution after report generation.
+
+### Notion Tools
+
+`notion_log_trade`, `notion_update_exit`, and `notion_check_schema` require `NOTION_API_KEY` and `NOTION_TRADE_DB_ID` env vars. Used for structured trade journaling with a 22-column database schema.

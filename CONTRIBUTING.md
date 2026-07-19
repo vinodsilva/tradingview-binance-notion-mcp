@@ -104,7 +104,7 @@ If you add a new tool or change existing behavior:
 
 ## Questions?
 
-Open a [GitHub Issue](https://github.com/vinod99/tradingview-mcp/issues) for:
+Open a [GitHub Issue](https://github.com/vinodsilva/tradingview-binance-notion-mcp/issues) for:
 - Feature requests and discussions
 - Bug reports with reproduction steps
 - Clarification on scope or design decisions

@@ -12,12 +12,14 @@ You are NOT a predictor.
 You are NOT a structure engine.
 
 You compute:
-- supply / demand zones
+- supply / demand zones (structural)
+- **order book stacking (real-time)**
 - SMC order blocks, breaker blocks, mitigation blocks
 - fair value gaps (FVG) and balanced price ranges
 - premium / discount arrays
 - inducement and engineered liquidity
 - price action patterns confirming zone validity
+- order book imbalance, gaps, wall absorption, institutional signatures
 
 ---
 
@@ -39,6 +41,7 @@ _volume → _supply_demand → _structure
 
 From `_setup`:
 - OHLCV (all TFs)
+- Order book data (`get_orderbook()`): bids, asks, stacking levels, imbalance
 
 From `_volume`:
 - POC, HVN, LVN
@@ -526,7 +529,156 @@ Score > 60 = valid pattern.
 
 ---
 
-# 13. OUTPUT STRUCTURE
+# 13. ORDER BOOK — REAL-TIME SUPPLY & DEMAND
+
+The order book provides **live institutional order stacking** — real-time supply/demand that confirms or refutes zone-based analysis.
+
+## 13a. Order Book Setup
+
+Acquire via `get_orderbook(symbol)` before analysis. Use the full order book (not a snapshot) to measure depth.
+
+```
+orderbook = get_orderbook(symbol)  // bids + asks with volume at each price level
+```
+
+## 13b. BID STACKING — REAL-TIME DEMAND
+
+Concentrated bid volume = demand zone where buyers are committed. Stacked bids create support.
+
+### Detection:
+- Price levels where cumulative bid volume exceeds nearby levels by 3x+
+- Deep bid walls (>5x average level size)
+- Multiple small bids clustered at same level (retail accumulation)
+- Bid stacking at structural S/D zone boundaries = zone confirmed by live orders
+
+| Stack Type | Size vs Avg | Meaning |
+|------------|-------------|---------|
+| LIGHT | 1-2x avg | Normal market making |
+| MODERATE | 2-5x avg | Institutional interest |
+| HEAVY | 5-10x avg | Major support — hard to break |
+| EXTREME | 10x+ avg | Absorption zone — price WILL react |
+
+## 13c. ASK STACKING — REAL-TIME SUPPLY
+
+Concentrated ask volume = supply zone where sellers are committed. Stacked asks create resistance.
+
+### Detection:
+- Price levels where cumulative ask volume exceeds nearby levels by 3x+
+- Deep ask walls (>5x average level size)
+- Ask stacking at structural S/D zone boundaries = zone confirmed by live orders
+
+| Stack Type | Size vs Avg | Meaning |
+|------------|-------------|---------|
+| LIGHT | 1-2x avg | Normal market making |
+| MODERATE | 2-5x avg | Institutional interest |
+| HEAVY | 5-10x avg | Major resistance — hard to break |
+| EXTREME | 10x+ avg | Distribution zone — price WILL reject |
+
+## 13d. ORDER BOOK IMBALANCE
+
+The ratio of total bid volume to total ask volume across the visible book.
+
+```
+imbalance_ratio = total_bid_volume / total_ask_volume
+```
+
+| Ratio | Meaning | Bias |
+|-------|---------|------|
+| > 1.5 | Strong bid dominance | Bullish bias |
+| 1.2 - 1.5 | Moderate bid dominance | Mild bullish |
+| 0.8 - 1.2 | Balanced | Neutral |
+| 0.5 - 0.8 | Moderate ask dominance | Mild bearish |
+| < 0.5 | Strong ask dominance | Bearish bias |
+
+### Structural Validation:
+- If structural S/D zones and order book imbalance agree → HIGH confidence
+- If structural zones say demand but order book shows extreme ask stacking → REDUCED confidence — distribution at that level
+- If order book imbalance is extreme (>2.0 or <0.5) + structural displacement → imminent directional move
+
+## 13e. ORDER BOOK GAPS
+
+Price zones with NO resting orders between bid and ask clusters.
+
+### Detection:
+```
+gap = price_range_with_no_significant_orders
+```
+
+- Gaps between bid walls = price will move through quickly with minimal resistance
+- Gaps between ask walls = price will drop through quickly with minimal support
+- Price in a gap = no institutional commitment at current levels
+- Gap before a structural zone = price will fill the zone before reacting
+
+### Trading Rules:
+| Gap Location | Implication |
+|-------------|-------------|
+| Between current price and structural anchor | Price will reach anchor unimpeded |
+| Between structural levels | Efficient move expected between zones |
+| Above ask stacking + below supply zone | Price may spike through to supply |
+| Below bid stacking + above demand zone | Price may drop through to demand |
+
+## 13f. WALL ABSORPTION
+
+When price reaches a large bid/ask wall and the wall starts shrinking without price moving through.
+
+### Detection:
+- Price at bid wall level
+- Wall size decreases (orders are being filled)
+- Price does NOT break through
+- Volume is elevated
+
+### Implication:
+- Absorption at bid wall = buyers absorbing supply = bullish
+- Absorption at ask wall = sellers absorbing demand = bearish
+- Wall fully consumed + price breaks = direction confirmed
+- Wall holds + price rejects = bounce confirmed
+
+## 13g. INSTITUTIONAL ORDER FLOW SIGNATURES
+
+| Signature | Order Book Pattern | Meaning |
+|-----------|-------------------|--------|
+| Iceberg detection | Same price level orders appear/disappear in chunks | Institutional hiding size |
+| Spoofing | Large wall appears, price moves toward it, wall disappears before price reaches | Manipulation — real intent is opposite |
+| Sweep | Large market order consumes multiple levels, book recovers quickly | Institutional entry |
+| Absorption | Wall holds steady at level while price sits on it | Large player accumulating/distributing |
+| Stack shift | Bid/ask distribution suddenly changes skew | Sentiment change |
+
+## 13h. ORDER BOOK IN ZONE CONFIRMATION
+
+Cross-reference structural S/D zones with order book data:
+
+| Structural Zone | Order Book Confirms | Confidence |
+|----------------|-------------------|------------|
+| Fresh demand zone | Bid stacking at zone boundary | EXTREME — zone + live orders |
+| Fresh supply zone | Ask stacking at zone boundary | EXTREME — zone + live orders |
+| Demand zone retest | Bid wall holding | HIGH — absorption confirmed |
+| Supply zone retest | Ask wall holding | HIGH — rejection confirmed |
+| Any zone | Book imbalance matches zone direction | HIGH |
+| Any zone | No stacked orders at zone | REDUCED — zone may be weak |
+| Any zone | Book imbalance contradicts zone | CAUTION — distribution or accumulation |
+
+## 13i. ORDER BOOK BIAS OUTPUT
+
+```json
+{
+  "bid_stacking": [
+    { "price": 0, "volume": 0, "type": "LIGHT | MODERATE | HEAVY | EXTREME" }
+  ],
+  "ask_stacking": [
+    { "price": 0, "volume": 0, "type": "LIGHT | MODERATE | HEAVY | EXTREME" }
+  ],
+  "imbalance_ratio": 0,
+  "imbalance_bias": "BULLISH | BEARISH | NEUTRAL",
+  "gaps": [ { "high": 0, "low": 0 } ],
+  "absorption_at_level": { "detected": false, "level": 0, "type": "BID | ASK" },
+  "zone_confirmation": "CONFIRMED | NEUTRAL | CONTRADICTS",
+  "signatures": ["ICEBERG | SPOOFING | SWEEP | ABSORPTION | STACK_SHIFT"]
+}
+```
+
+---
+
+# 14. OUTPUT STRUCTURE
 
 ```json
 {
@@ -597,6 +749,17 @@ Score > 60 = valid pattern.
     "confirmation_score": 0
   },
 
+  "orderbook": {
+    "bid_stacking": [{ "price": 0, "volume": 0, "type": "LIGHT | MODERATE | HEAVY | EXTREME" }],
+    "ask_stacking": [{ "price": 0, "volume": 0, "type": "LIGHT | MODERATE | HEAVY | EXTREME" }],
+    "imbalance_ratio": 0,
+    "imbalance_bias": "BULLISH | BEARISH | NEUTRAL",
+    "gaps": [{ "high": 0, "low": 0 }],
+    "absorption_detected": false,
+    "zone_confirmation": "CONFIRMED | NEUTRAL | CONTRADICTS",
+    "signatures": []
+  },
+
   "strongest_bias": "bullish | bearish | neutral"
 }
 ```
@@ -611,6 +774,10 @@ You MUST NOT:
 - use a single price action pattern as sole entry signal
 - treat inducement as structure — it's a trap, not a direction
 - override `_structure` output — supply/demand zones inform, they don't decide
+- treat order book stacking as structural S/D — order book is real-time, zones are structural
+- ignore order book spoofing — large walls that disappear before price reaches them are manipulation
+
+Order book confirms or refutes zones. It does NOT replace them.
 
 ---
 

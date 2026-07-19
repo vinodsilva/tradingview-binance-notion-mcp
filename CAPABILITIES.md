@@ -1,6 +1,6 @@
 # Current Setup — Full Capabilities
 
-101 tools across 2 integrated systems: **TradingView Desktop (CDP)** + **Binance (REST API)**
+104 tools across 4 integrated systems: **TradingView Desktop (CDP)** + **Binance (REST API)** + **Telegram** + **Notion Trade Journal**
 
 ---
 
@@ -105,6 +105,11 @@ _setup → _volume → _supply_demand → _structure → _fib → _momentum → 
 
 Trigger: *"Act as **chart-analyst** on BTCUSD"*
 
+### Indicator Data
+| Tool | What it does |
+|------|-------------|
+| `data_get_indicator` | Get study/indicator info and input values |
+
 ### Strategy Tester
 - Read backtest metrics, trade list, equity curve from any strategy
 
@@ -193,6 +198,12 @@ tv screenshot -r chart  # capture chart
 tv pane layout 2x2 # 4-chart grid
 ```
 
+## 📓 Notion Trade Journal
+
+- Log trade entries with setup, levels, Conviction, Grade
+- Update exits with P&L and result
+- Check database schema compatibility before logging
+
 ---
 
 ## 🏗 Architecture
@@ -201,12 +212,14 @@ tv pane layout 2x2 # 4-chart grid
 Claude Code / AI Agent ←→ MCP Server (stdio) ←→ CDP ─── TradingView Desktop (Electron)
                                                  ←→ REST ── Binance (api + fapi)
                                                  ←→ Telegram Bot API
+                                                 ←→ Notion REST API
 ```
 
 - **Transport**: MCP stdio protocol
 - **TradingView**: Chrome DevTools Protocol (localhost:9222)
 - **Binance**: REST API — api.binance.com (spot) + fapi.binance.com (futures)
 - **Telegram**: Bot API
+- **Notion**: REST API for trade journaling
 - **Dependencies**: `@modelcontextprotocol/sdk`, `chrome-remote-interface`, `binance-api-node`, `dotenv`
 
 ---

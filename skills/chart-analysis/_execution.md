@@ -64,6 +64,8 @@ If no anchor has quality ≥ 60 → no limit entry is placed. Fall back to marke
 - RSI not oversold on entry TF unless part of divergence setup
 - Invalidation level known (beyond anchor by 0.5 avg_range)
 - effective_score >= 70 from confluence
+- Order book confirms: bid stacking at anchor level (absorption) or imbalance supports direction
+- No order book spoofing detected at anchor level
 
 **Short (Limit Sell at Anchor):**
 - Solid anchor identified (OB high / FVG CE / supply zone / OTE 0.618-0.786)
@@ -74,6 +76,8 @@ If no anchor has quality ≥ 60 → no limit entry is placed. Fall back to marke
 - RSI not overbought on entry TF unless part of divergence setup
 - Invalidation level known (beyond anchor by 0.5 avg_range)
 - effective_score >= 70 from confluence
+- Order book confirms: ask stacking at anchor level (rejection likely) or imbalance supports direction
+- No order book spoofing detected at anchor level
 
 **Anchor Hunting Rule:** Place limit at anchor price. If price reaches within 0.1 avg_range of the anchor level AND shows a rejection candle (pin, engulfing, volume spike) on the entry TF → entry triggers. If price blows through anchor without reaction (>0.5 avg_range beyond) → cancel limit, anchor is invalidated.
 

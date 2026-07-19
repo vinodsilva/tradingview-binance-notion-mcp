@@ -7,8 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js)](https://nodejs.org)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-6C47FF)](https://modelcontextprotocol.io)
-[![macOS](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)](https://github.com/vinod99/tradingview-mcp)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/vinod99/tradingview-mcp/pulls)
+[![macOS](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)](https://github.com/vinodsilva/tradingview-binance-notion-mcp)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/vinodsilva/tradingview-binance-notion-mcp/pulls)
 
 </div>
 
@@ -33,7 +33,7 @@ Claude Code / AI Agent ←→ MCP Server ←→ CDP ─── TradingView Deskto
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/vinod99/tradingview-mcp.git
+git clone https://github.com/vinodsilva/tradingview-binance-notion-mcp.git
 cd tradingview-mcp
 npm install
 
@@ -85,6 +85,7 @@ NOTION_TRADE_DB_ID=your_trade_database_id
 | `data_get_study_values` | Live readings from every visible indicator |
 | `quote_get` | Real-time price: last, OHLC, volume |
 | `data_get_ohlcv` | Price bars with `summary: true` for compact stats |
+| `data_get_indicator` | Indicator info and input values by entity ID |
 | `depth_get` | Full order book / DOM |
 | `symbol_info` | Symbol metadata, exchange, type |
 | `symbol_search` | Search by ticker or keyword |
@@ -196,7 +197,7 @@ Practice trade on historical data:
 | Tool | Description |
 |------|-------------|
 | `ui_click` | Click by aria-label, text, or CSS |
-| `ui_open_panel` | Open/close pine-editor, strategy-tester, watchlist, alerts, trading |
+| `ui_open_panel` | Open/close pine-editor, strategy-tester, watchlist, alerts, trading, replay |
 | `ui_fullscreen` | Toggle fullscreen |
 | `ui_keyboard` | Press keys or shortcuts (Enter, Ctrl+Z, etc.) |
 | `ui_type_text` | Type into the focused element |
