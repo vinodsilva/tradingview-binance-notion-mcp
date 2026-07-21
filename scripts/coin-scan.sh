@@ -33,7 +33,7 @@ const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
 console.log('Scanned: '+d.scanned+' | Passed: '+d.passed+' | Failed: '+d.failed+' | TF: '+d.timeframe+' | HTF: '+(d.htf||'-'));
 console.log('');
 if (d.top_results && d.top_results.length > 0) {
-  console.log('Rank  Symbol              Dir     MTFSc  Rel    Entropy  Persist  VolR  Move%  HTF_Trend  State        Priority');
+  console.log('Rank  Symbol              Dir     MTFSc  Rel    Entropy  Persist  VolR  Move%  HTF_Trend  State        HMM_Reg    HMM_Stab  Priority');
   d.top_results.forEach((r,i) => {
     const mtf=r.mtf_score||0;
     const ent=r.entropy||99;
@@ -41,6 +41,9 @@ if (d.top_results && d.top_results.length > 0) {
     const vr=r.volume_ratio||0;
     const htfT=r.htf_context?(r.htf_context.trend||'--'):'--';
     const dir=r.direction||'--';
+    const hmmReg=r.hmm_regime||'--';
+    const hmmStab=r.hmm_regime_stability||0;
+    const hmmDir=r.hmm_direction||'--';
 
     let priority;
     if (mtf > 0.5 && ent < 1.0 && htfT === dir) {
@@ -65,7 +68,9 @@ if (d.top_results && d.top_results.length > 0) {
     const mv=(r.total_move_pct||0).toFixed(1).padStart(6);
     const htfP=htfT.padEnd(9);
     const st=(r.last_state||'').padEnd(12);
-    console.log(' '+(i+1+']').padStart(4)+' '+sym+' '+dirP+' '+mtfP+' '+relP+' '+entP+' '+per+' '+vrP+' '+mv+'  '+htfP+' '+st+priority);
+    const hmmRegP=hmmReg.padEnd(10);
+    const hmmStabP=hmmStab.toFixed(3).padStart(7);
+    console.log(' '+(i+1+']').padStart(4)+' '+sym+' '+dirP+' '+mtfP+' '+relP+' '+entP+' '+per+' '+vrP+' '+mv+'  '+htfP+' '+st+' '+hmmRegP+' '+hmmStabP+' '+priority);
   });
 } else {
   console.log('No candidates passed filters.');

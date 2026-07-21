@@ -1,0 +1,88 @@
+//@version=6
+indicator("Quant Confluence Engine - EMA MACD ATR RSI VWAO", overlay=false, max_labels_count=500)
+
+src = input.source(close, "Source")
+showEMAs = input.bool(true, "Show EMAs on Chart")
+atrLength = input.int(14, "ATR Length")
+rsiLength = input.int(14, "RSI Length")
+fast = input.int(12, "MACD Fast")
+slow = input.int(26, "MACD Slow")
+signalLength = input.int(9, "MACD Signal")
+vwaoFastLen = input.int(14, "VWAO Fast")
+vwaoSlowLen = input.int(28, "VWAO Slow")
+stochK = input.int(14, "Stoch %K")
+stochD = input.int(3, "Stoch %D")
+stochSmooth = input.int(3, "Stoch Smooth")
+
+ema20 = ta.ema(close, 20)
+ema50 = ta.ema(close, 50)
+ema200 = ta.ema(close, 200)
+plot(showEMAs ? ema20 : na, "EMA20", color.blue, 1)
+plot(showEMAs ? ema50 : na, "EMA50", color.orange, 1)
+plot(showEMAs ? ema200 : na, "EMA200", color.red, 1)
+
+bullTrend = close > ema20 and ema20 > ema50 and ema50 > ema200
+bearTrend = close < ema20 and ema20 < ema50 and ema50 < ema200
+trendState = bullTrend ? "bull" : bearTrend ? "bear" : "neutral"
+
+v = ta.vwap(close)
+plot(v, "VWAP", color.new(color.yellow, 40), linewidth=2)
+
+atr = ta.atr(atrLength)
+atrAvg = ta.sma(atr, 20)
+atrState = atr > atrAvg ? "expanding" : "normal"
+plot(atr, "ATR", display=display.data_window)
+
+rsi = ta.rsi(src, rsiLength)
+plot(rsi, "RSI", display=display.data_window)
+
+stochRsi = ta.stoch(close, high, low, stochK)
+stochRsiMa = ta.sma(stochRsi, stochD)
+plot(stochRsi, "StochRSI K", color.fuchsia, linewidth=2)
+plot(stochRsiMa, "StochRSI D", color.aqua, linewidth=2)
+hline(80, "Overbought", color.new(color.fuchsia, 40), hline.style_dashed)
+hline(50, "Midline", color.new(color.gray, 40), hline.style_dotted)
+hline(20, "Oversold", color.new(color.aqua, 40), hline.style_dashed)
+
+macd = ta.ema(src, fast) - ta.ema(src, slow)
+macdSignal = ta.ema(macd, signalLength)
+macdHist = macd - macdSignal
+plot(macd, "MACD Line", display=display.data_window)
+plot(macdSignal, "MACD Signal", display=display.data_window)
+plot(macdHist, "MACD Histogram", display=display.data_window)
+
+vwaoF = ta.vwma(close, vwaoFastLen)
+vwaoS = ta.vwma(close, vwaoSlowLen)
+plot(vwaoF, "VWAO Fast", display=display.data_window)
+plot(vwaoS, "VWAO Slow", display=display.data_window)
+
+macdBull = macd > macdSignal
+rsiBull = rsi > 50
+vwaoBull = vwaoF > vwaoS
+stochBull = stochRsi > stochRsiMa
+score = (macdBull ? 20 : 0) + (rsiBull ? 20 : 0) + (bullTrend ? 20 : 0) + (vwaoBull ? 20 : 0) + (stochBull ? 20 : 0)
+
+macdState = macdBull ? "bull" : "bear"
+vwaoState = vwaoBull ? "bull" : "bear"
+stochState = stochBull ? "bull" : "bear"
+
+pos = input.string("top_right", "Table Position", options=["top_right", "top_left", "bottom_right", "bottom_left"])
+tbl = table.new(pos, 8, 2, bgcolor=color.new(color.black, 80))
+
+table.cell(tbl, 0, 0, "RSI", text_color=color.gray, text_size=size.small)
+table.cell(tbl, 1, 0, str.tostring(rsi, "#.##"), text_color=color.lime, text_size=size.small)
+table.cell(tbl, 2, 0, "MACD", text_color=color.gray, text_size=size.small)
+table.cell(tbl, 3, 0, macdState, text_color=macdBull ? color.lime : color.red, text_size=size.small)
+table.cell(tbl, 4, 0, "Score", text_color=color.gray, text_size=size.small)
+table.cell(tbl, 5, 0, str.tostring(score), text_color=color.yellow, text_size=size.small)
+table.cell(tbl, 6, 0, "StRSI", text_color=color.gray, text_size=size.small)
+table.cell(tbl, 7, 0, stochState, text_color=stochBull ? color.lime : color.red, text_size=size.small)
+
+table.cell(tbl, 0, 1, "ATR", text_color=color.gray, text_size=size.small)
+table.cell(tbl, 1, 1, atrState, text_color=atrState == "expanding" ? color.orange : color.gray, text_size=size.small)
+table.cell(tbl, 2, 1, "VWAO", text_color=color.gray, text_size=size.small)
+table.cell(tbl, 3, 1, vwaoState, text_color=vwaoBull ? color.lime : color.red, text_size=size.small)
+table.cell(tbl, 4, 1, "Trend", text_color=color.gray, text_size=size.small)
+table.cell(tbl, 5, 1, trendState, text_color=bullTrend ? color.lime : bearTrend ? color.red : color.gray, text_size=size.small)
+table.cell(tbl, 6, 1, "VWAP", text_color=color.gray, text_size=size.small)
+table.cell(tbl, 7, 1, close > v ? "above" : "below", text_color=close > v ? color.lime : color.red, text_size=size.small)

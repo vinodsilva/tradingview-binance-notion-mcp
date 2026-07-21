@@ -51,6 +51,186 @@ function computeSteadyState(probs) {
   return vec;
 }
 
+// ── Hidden Markov Model (Gaussian HMM, 3 hidden states) ──
+// Hidden states: UP, DOWN, RANGE
+function kmeansInit(returns, k) {
+  const sorted = [...returns].sort((a, b) => a - b);
+  const centroids = [];
+  for (let i = 0; i < k; i++) centroids.push(sorted[Math.floor((i + 0.5) * sorted.length / k)]);
+  let assignments = new Array(returns.length).fill(0);
+  for (let iter = 0; iter < 20; iter++) {
+    for (let i = 0; i < returns.length; i++) {
+      let best = 0, bestD = Infinity;
+      for (let j = 0; j < k; j++) {
+        const d = Math.abs(returns[i] - centroids[j]);
+        if (d < bestD) { bestD = d; best = j; }
+      }
+      assignments[i] = best;
+    }
+    for (let j = 0; j < k; j++) {
+      const group = returns.filter((_, i) => assignments[i] === j);
+      centroids[j] = group.length > 0 ? group.reduce((a, b) => a + b, 0) / group.length : 0;
+    }
+  }
+  return centroids;
+}
+
+function gaussPdf(x, mu, sigma) {
+  if (sigma < 1e-10) sigma = 1e-10;
+  return (1 / (Math.sqrt(2 * Math.PI) * sigma)) * Math.exp(-0.5 * ((x - mu) / sigma) ** 2);
+}
+
+function analyzeHMM(returns) {
+  const N = 3;
+  const T = returns.length;
+  const HMM_LABELS = ['UP', 'DOWN', 'RANGE'];
+
+  const cents = kmeansInit(returns, N);
+  const sortedCents = [...cents].sort((a, b) => a - b);
+
+  let pi = Array(N).fill(1 / N);
+  let A = Array.from({ length: N }, () => Array(N).fill(1 / N));
+  let mus = Array(N);
+  let sigmas = Array(N);
+
+  for (let i = 0; i < N; i++) {
+    mus[i] = sortedCents[i];
+    sigmas[i] = returns.reduce((sum, r) => sum + (r - mus[i]) ** 2, 0) / Math.max(1, returns.length);
+    sigmas[i] = Math.sqrt(sigmas[i]) || 0.5;
+  }
+
+  for (let em = 0; em < 15; em++) {
+    const alpha = Array.from({ length: T }, () => Array(N).fill(0));
+    const beta = Array.from({ length: T }, () => Array(N).fill(0));
+    const gamma = Array.from({ length: T }, () => Array(N).fill(0));
+    const xi = Array.from({ length: T - 1 }, () => Array.from({ length: N }, () => Array(N).fill(0)));
+
+    for (let i = 0; i < N; i++) alpha[0][i] = pi[i] * gaussPdf(returns[0], mus[i], sigmas[i]);
+    let aNorm = alpha[0].reduce((s, v) => s + v, 0) || 1;
+    for (let i = 0; i < N; i++) alpha[0][i] /= aNorm;
+
+    for (let t = 1; t < T; t++) {
+      for (let j = 0; j < N; j++) {
+        let sum = 0;
+        for (let i = 0; i < N; i++) sum += alpha[t - 1][i] * A[i][j];
+        alpha[t][j] = sum * gaussPdf(returns[t], mus[j], sigmas[j]);
+      }
+      const norm = alpha[t].reduce((s, v) => s + v, 0) || 1;
+      for (let j = 0; j < N; j++) alpha[t][j] /= norm;
+    }
+
+    for (let i = 0; i < N; i++) beta[T - 1][i] = 1;
+    for (let t = T - 2; t >= 0; t--) {
+      for (let i = 0; i < N; i++) {
+        let sum = 0;
+        for (let j = 0; j < N; j++) sum += A[i][j] * gaussPdf(returns[t + 1], mus[j], sigmas[j]) * beta[t + 1][j];
+        beta[t][i] = sum;
+      }
+      const norm = beta[t].reduce((s, v) => s + v, 0) || 1;
+      for (let i = 0; i < N; i++) beta[t][i] /= norm;
+    }
+
+    for (let t = 0; t < T; t++) {
+      let sum = 0;
+      for (let i = 0; i < N; i++) sum += alpha[t][i] * beta[t][i];
+      sum = sum || 1;
+      for (let i = 0; i < N; i++) gamma[t][i] = alpha[t][i] * beta[t][i] / sum;
+    }
+
+    for (let t = 0; t < T - 1; t++) {
+      let sum = 0;
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++)
+        sum += alpha[t][i] * A[i][j] * gaussPdf(returns[t + 1], mus[j], sigmas[j]) * beta[t + 1][j];
+      sum = sum || 1;
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++)
+        xi[t][i][j] = alpha[t][i] * A[i][j] * gaussPdf(returns[t + 1], mus[j], sigmas[j]) * beta[t + 1][j] / sum;
+    }
+
+    for (let i = 0; i < N; i++) pi[i] = gamma[0][i];
+
+    for (let i = 0; i < N; i++) {
+      let denom = 0;
+      for (let t = 0; t < T - 1; t++) denom += gamma[t][i];
+      denom = denom || 1;
+      for (let j = 0; j < N; j++) {
+        let numer = 0;
+        for (let t = 0; t < T - 1; t++) numer += xi[t][i][j];
+        A[i][j] = numer / denom;
+      }
+    }
+
+    for (let j = 0; j < N; j++) {
+      let numer = 0, denom = 0;
+      for (let t = 0; t < T; t++) { numer += gamma[t][j] * returns[t]; denom += gamma[t][j]; }
+      mus[j] = denom > 0 ? numer / denom : mus[j];
+    }
+
+    for (let j = 0; j < N; j++) {
+      let numer = 0, denom = 0;
+      for (let t = 0; t < T; t++) { numer += gamma[t][j] * (returns[t] - mus[j]) ** 2; denom += gamma[t][j]; }
+      sigmas[j] = denom > 0 ? Math.sqrt(numer / denom) || 0.3 : sigmas[j];
+    }
+  }
+
+  const vit = Array.from({ length: T }, () => Array(N).fill(0));
+  const back = Array.from({ length: T }, () => Array(N).fill(0));
+  for (let i = 0; i < N; i++) vit[0][i] = Math.log(pi[i] + 1e-15) + Math.log(gaussPdf(returns[0], mus[i], sigmas[i]) + 1e-15);
+  for (let t = 1; t < T; t++) {
+    for (let j = 0; j < N; j++) {
+      let best = -Infinity, bestIdx = 0;
+      for (let i = 0; i < N; i++) {
+        const val = vit[t - 1][i] + Math.log(A[i][j] + 1e-15);
+        if (val > best) { best = val; bestIdx = i; }
+      }
+      vit[t][j] = best + Math.log(gaussPdf(returns[t], mus[j], sigmas[j]) + 1e-15);
+      back[t][j] = bestIdx;
+    }
+  }
+
+  const stateSeq = Array(T).fill(0);
+  stateSeq[T - 1] = vit[T - 1].indexOf(Math.max(...vit[T - 1]));
+  for (let t = T - 2; t >= 0; t--) stateSeq[t] = back[t + 1][stateSeq[t + 1]];
+
+  const lastProbs = (() => {
+    let sum = 0;
+    const raw = [];
+    for (let i = 0; i < N; i++) { const v = alpha[T - 1][i] * beta[T - 1][i]; raw.push(v); sum += v; }
+    sum = sum || 1;
+    return raw.map(v => Math.round(v / sum * 1000) / 10);
+  })();
+
+  const regimeTransitions = stateSeq.slice(1).filter((s, i) => s !== stateSeq[i]).length;
+  const regimeStability = T > 1 ? 1 - regimeTransitions / (T - 1) : 1;
+
+  const label = HMM_LABELS[stateSeq[stateSeq.length - 1]];
+
+  const direction = (() => {
+    if (label === 'UP') return 'BULL';
+    if (label === 'DOWN') return 'BEAR';
+    const upW = lastProbs[HMM_LABELS.indexOf('UP')];
+    const downW = lastProbs[HMM_LABELS.indexOf('DOWN')];
+    if (upW > downW * 1.5) return 'BULL';
+    if (downW > upW * 1.5) return 'BEAR';
+    return 'NEUTRAL';
+  })();
+
+  return {
+    hmm_direction: direction,
+    hmm_regime: label,
+    hmm_regime_stability: Math.round(regimeStability * 1000) / 1000,
+    hmm_state_probs: {
+      up_pct: lastProbs[HMM_LABELS.indexOf('UP')],
+      down_pct: lastProbs[HMM_LABELS.indexOf('DOWN')],
+      range_pct: lastProbs[HMM_LABELS.indexOf('RANGE')],
+    },
+    hmm_state_means: mus.map(m => Math.round(m * 1000) / 1000),
+    hmm_state_sigmas: sigmas.map(s => Math.round(s * 1000) / 1000),
+    hmm_viterbi_path: stateSeq.join(''),
+    hmm_last_state_idx: stateSeq[stateSeq.length - 1],
+    hmm_state_labels: HMM_LABELS,
+  };
+}
+
 function analyzeMarkov(closes) {
   const returns = [];
   for (let i = 1; i < closes.length; i++) returns.push(((closes[i] - closes[i - 1]) / closes[i - 1]) * 100);
@@ -197,6 +377,9 @@ export async function scanCoins({ symbols, timeframe = '60', bars = 30, volume_m
       const volumeRatio = avgVolumeCoins > 0 ? avgVol / avgVolumeCoins : 1;
 
       const analysis = analyzeMarkov(closes);
+      const returns = [];
+      for (let i = 1; i < closes.length; i++) returns.push(((closes[i] - closes[i - 1]) / closes[i - 1]) * 100);
+      const hmm = analyzeHMM(returns);
 
       let htfContext = null;
       if (htf) {
@@ -219,6 +402,7 @@ export async function scanCoins({ symbols, timeframe = '60', bars = 30, volume_m
         mtf_score: Math.round(mtfScore * 1000) / 1000,
         htf_context: htfContext,
         ...analysis,
+        ...hmm,
       });
     } catch (err) {
       results.push({ symbol, success: false, error: err.message });

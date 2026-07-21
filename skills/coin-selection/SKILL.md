@@ -123,6 +123,28 @@ if HTF trend opposes direction: -0.15
 mtf_score = clamp(0, 1)
 ```
 
+**11. Hidden Markov Model (HMM) Analysis:**
+
+A 3-state Gaussian HMM (UP / DOWN / RANGE) is fitted via Baum-Welch (15 EM iterations) on the return series, with k-means initialization for the emission parameters.
+
+| Metric | Description |
+|--------|-------------|
+| **HMM Regime** | Most likely hidden state at last bar: UP, DOWN, or RANGE |
+| **HMM Direction** | Smoothed directional signal: BULL (UP state dominant), BEAR (DOWN state dominant), or NEUTRAL (RANGE) |
+| **HMM Stability** | `1 - regime_changes / (T-1)` — how stable the hidden state path is. Higher = cleaner regime. |
+| **State Probs** | Posterior probability of each hidden state at the last bar (up_pct, down_pct, range_pct) |
+
+**HMM vs Markov comparison:**
+
+| Aspect | Markov (observable) | HMM (hidden) |
+|--------|--------------------|--------------|
+| States | Based on single-bar returns (noisy) | Inferred from return distribution (smoothed) |
+| Noise | Flags every >1.5% bar as "Strong" | Separates signal from noise via emission probs |
+| Regime | No regime detection | Explicit UP/DOWN/RANGE regime |
+| Stability | Not measured | `regime_stability` score |
+
+**Interpretation:** If Markov says BULL and HMM says UP with high stability → strong alignment. If Markov says BULL but HMM says RANGE → the "bull" is likely noise within a range, not a sustained trend.
+
 ---
 
 ## Step 2: Filter Candidates
@@ -186,9 +208,9 @@ Check:
 ## Step 5: Report & Handoff
 
 ```
-Rank | Symbol              Dir     MTFSc  Rel    Entropy  Persist  VolR  Move%  HTF_Trend  State
- 1   | SOLUSDT             BULL      72    55     0.82    0.450   1.2  +8.4  BULL       Strong Bull
- 2   | PEPEUSDT            BULL      61    48     1.10    0.380   0.9  +14.2 BULL       Weak Bull
+Rank | Symbol              Dir     MTFSc  Rel    Entropy  Persist  VolR  Move%  HTF_Trend  State        HMM_Reg    HMM_Stab  Priority
+ 1   | SOLUSDT             BULL      72    55     0.82    0.450   1.2  +8.4  BULL       Strong Bull  UP         0.833     PRIMARY
+ 2   | PEPEUSDT            BULL      61    48     1.10    0.380   0.9  +14.2 BULL       Weak Bull    RANGE      0.621     WATCH
 ```
 
 | Column | Description |
@@ -204,6 +226,9 @@ Rank | Symbol              Dir     MTFSc  Rel    Entropy  Persist  VolR  Move%  
 | Move% | Total net move over the period |
 | HTF_Trend | Higher timeframe trend (BULL/BEAR/NEUTRAL) |
 | State | Last state label (Strong Bull / Weak Bear / etc.) |
+| HMM_Reg | HMM hidden regime (UP / DOWN / RANGE) — smoothed, less noisy |
+| HMM_Stab | HMM regime stability (0-1) — higher = cleaner trend regime |
+| Priority | PRIMARY / SECONDARY / WATCH / EDGE / SKIP |
 
 Handoff top pick to chart-analyst for full institutional pipeline.
 
