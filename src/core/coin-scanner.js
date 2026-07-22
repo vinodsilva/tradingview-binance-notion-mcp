@@ -328,6 +328,298 @@ async function getHtfContext(symbol, htf) {
   return { trend, price_vs_ema: priceVsEma, rsi_zone: rsiZone, macd_signal: macdSignal, htf };
 }
 
+// ── StochRSI Calculator ──
+
+function calcRSI(closes, period = 14) {
+  const gains = [], losses = [];
+  for (let i = 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    gains.push(diff > 0 ? diff : 0);
+    losses.push(diff < 0 ? -diff : 0);
+  }
+  let avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  const rsiVals = [avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)];
+  for (let i = period; i < gains.length; i++) {
+    avgGain = (avgGain * (period - 1) + gains[i]) / period;
+    avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
+    rsiVals.push(avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss));
+  }
+  return rsiVals;
+}
+
+function calcSMA(values, period) {
+  const result = [];
+  for (let i = 0; i < values.length; i++) {
+    if (i < period - 1) { result.push(null); continue; }
+    let sum = 0;
+    for (let j = i - period + 1; j <= i; j++) sum += values[j];
+    result.push(sum / period);
+  }
+  return result;
+}
+
+function calcStochRSI(closes, rsiPeriod = 14, stochK = 3, stochD = 3) {
+  const rsiVals = calcRSI(closes, rsiPeriod);
+  const stochRaw = [];
+  for (let i = 0; i < rsiVals.length; i++) {
+    if (i < rsiPeriod - 1) { stochRaw.push(null); continue; }
+    const lo = Math.min(...rsiVals.slice(i - rsiPeriod + 1, i + 1));
+    const hi = Math.max(...rsiVals.slice(i - rsiPeriod + 1, i + 1));
+    stochRaw.push(hi === lo ? 50 : ((rsiVals[i] - lo) / (hi - lo)) * 100);
+  }
+  const kLine = calcSMA(stochRaw, stochK);
+  const dLine = calcSMA(kLine, stochD);
+  return { k: kLine, d: dLine, raw: stochRaw };
+}
+
+function findSwingHigh(highs, lookback = 5) {
+  const n = highs.length;
+  if (n < lookback * 2 + 1) return null;
+  const mid = n - lookback;
+  for (let i = n - lookback; i < n; i++) {
+    let isHigh = true;
+    for (let j = i - lookback; j <= i + lookback; j++) {
+      if (j < 0 || j >= n) continue;
+      if (j !== i && highs[j] > highs[i]) { isHigh = false; break; }
+    }
+    if (isHigh) return { idx: i, price: highs[i] };
+  }
+  return null;
+}
+
+function findSwingLow(lows, lookback = 5) {
+  const n = lows.length;
+  if (n < lookback * 2 + 1) return null;
+  for (let i = n - lookback; i < n; i++) {
+    let isLow = true;
+    for (let j = i - lookback; j <= i + lookback; j++) {
+      if (j < 0 || j >= n) continue;
+      if (j !== i && lows[j] < lows[i]) { isLow = false; break; }
+    }
+    if (isLow) return { idx: i, price: lows[i] };
+  }
+  return null;
+}
+
+function detectDivergence(highs, lows, stochVals) {
+  const recentHigh = findSwingHigh(highs);
+  const recentLow = findSwingLow(lows);
+  if (!recentHigh || !recentLow || recentHigh.idx < 5 || recentLow.idx < 5) return null;
+
+  const priorHigh = findSwingHigh(highs.slice(0, recentHigh.idx));
+  const priorLow = findSwingLow(lows.slice(0, recentLow.idx));
+  if (!priorHigh || !priorLow) return null;
+  priorHigh.idx = priorHigh.idx;
+  priorLow.idx = priorLow.idx;
+
+  const getStochAt = (idx) => {
+    if (idx < 0 || idx >= stochVals.length) return null;
+    const v = stochVals[idx];
+    return (v !== null && v !== undefined) ? v : null;
+  };
+
+  const curSH = getStochAt(recentHigh.idx);
+  const curSL = getStochAt(recentLow.idx);
+  const prevSH = getStochAt(priorHigh.idx);
+  const prevSL = getStochAt(priorLow.idx);
+
+  if (curSH !== null && prevSH !== null) {
+    if (recentHigh.price > priorHigh.price && curSH < prevSH) {
+      return { type: 'REGULAR_BEAR', strength: 'STRONG' };
+    }
+    if (recentHigh.price < priorHigh.price && curSH > prevSH) {
+      return { type: 'HIDDEN_BEAR', strength: 'STRONG' };
+    }
+  }
+  if (curSL !== null && prevSL !== null) {
+    if (recentLow.price < priorLow.price && curSL > prevSL) {
+      return { type: 'REGULAR_BULL', strength: 'STRONG' };
+    }
+    if (recentLow.price > priorLow.price && curSL < prevSL) {
+      return { type: 'HIDDEN_BULL', strength: 'STRONG' };
+    }
+  }
+  return null;
+}
+
+async function readStudyStochRSI() {
+  return evaluate(`
+    (function() {
+      var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
+      var model = chart.model();
+      var sources = model.model().dataSources();
+      for (var si = 0; si < sources.length; si++) {
+        var s = sources[si];
+        if (!s.metaInfo) continue;
+        try {
+          var meta = s.metaInfo();
+          var name = meta.description || meta.shortDescription || '';
+          if (name.indexOf('Quant Confluence') === -1) continue;
+          var data = s.data();
+          var items = data._items;
+          if (!items || items.length < 12) return { found: false, error: 'insufficient data' };
+          var lastIdx = items.length - 1;
+          var last = items[lastIdx];
+          if (!last || !Array.isArray(last.value) || last.value.length < 9) return { found: false, error: 'no values at last index' };
+          if (last.value[7] === undefined || last.value[7] === null) return { found: false, error: 'no K value at last bar' };
+          var kValues = [], dValues = [];
+          for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if (item && item.value && Array.isArray(item.value)) {
+              kValues.push(item.value[7]);
+              dValues.push(item.value[8]);
+            }
+          }
+          return { found: true, indicator: name, k: kValues, d: dValues, count: kValues.length };
+        } catch(e) { return { found: false, error: e.message }; }
+      }
+      return { found: false, error: 'Quant Confluence Engine not found' };
+    })()
+  `);
+}
+
+export async function scanStochRSI({ symbols, timeframes = ['60', '240', 'D'], bars = 30, volume_min = 5, top_n = 10 } = {}) {
+  if (!symbols || symbols.length === 0) throw new Error('symbols array required');
+
+  const results = [];
+
+  for (const symbol of symbols) {
+    try {
+      await evaluateAsync(`new Promise(function(r){ ${API}.setSymbol(${safeString(symbol)}, {}); setTimeout(r, 500); })`);
+      await new Promise(r => setTimeout(r, 800));
+
+      const tfResults = [];
+
+      for (const tf of timeframes) {
+        await evaluate(`${API}.setResolution(${safeString(tf)}, {})`);
+        await new Promise(r => setTimeout(r, 1500));
+
+        const priceData = await evaluate(`
+          (function() {
+            var bars = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget.model().mainSeries().bars();
+            if (!bars || typeof bars.lastIndex !== 'function') return null;
+            var end = bars.lastIndex();
+            var limit = Math.min(${bars}, end - bars.firstIndex() + 1);
+            var start = end - limit + 1;
+            var result = [];
+            for (var i = start; i <= end; i++) {
+              var bar = bars.valueAt(i);
+              if (bar) result.push({ time: bar[0], open: bar[1], high: bar[2], low: bar[3], close: bar[4], volume: bar[5] || 0 });
+            }
+            return result;
+          })()
+        `);
+
+        if (!priceData || priceData.length < 12) {
+          tfResults.push({ timeframe: tf, error: 'Insufficient bars', success: false, zone: 'N/A' });
+          continue;
+        }
+
+        let stochStudy = null;
+        for (let retry = 0; retry < 12; retry++) {
+          stochStudy = await readStudyStochRSI();
+          if (stochStudy && stochStudy.found && stochStudy.k.length >= 12 && stochStudy.k[stochStudy.k.length - 1] !== undefined) break;
+          await new Promise(r => setTimeout(r, 500));
+        }
+
+        const highs = priceData.map(b => b.high);
+        const lows = priceData.map(b => b.low);
+        const volumes = priceData.map(b => b.volume);
+        const lastPrice = priceData[priceData.length - 1].close;
+        const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+
+        let lastK, lastD, prevK, prevD, kSeries;
+
+        if (stochStudy && stochStudy.found && stochStudy.k.length >= 12 && stochStudy.k[stochStudy.k.length - 1] !== undefined) {
+          const sk = stochStudy.k.filter(v => v !== null && v !== undefined);
+          const sd = stochStudy.d.filter(v => v !== null && v !== undefined);
+          lastK = sk[sk.length - 1];
+          lastD = sd[sd.length - 1];
+          prevK = sk[sk.length - 2];
+          prevD = sd[sd.length - 2];
+          kSeries = sk;
+        } else {
+          const closes = priceData.map(b => b.close);
+          const stoch = calcStochRSI(closes);
+          lastK = stoch.k[stoch.k.length - 1];
+          lastD = stoch.d[stoch.d.length - 1];
+          prevK = stoch.k[stoch.k.length - 2];
+          prevD = stoch.d[stoch.d.length - 2];
+          kSeries = stoch.k;
+        }
+
+        const zone = lastK >= 80 ? 'OVERBOUGHT' : lastK <= 20 ? 'OVERSOLD' : lastK > 50 ? 'BULLISH' : 'BEARISH';
+        const crossOver = prevK < prevD && lastK >= lastD;
+        const crossUnder = prevK > prevD && lastK <= lastD;
+
+        const divergence = detectDivergence(highs, lows, kSeries);
+
+        const tfResult = {
+          timeframe: tf,
+          stoch_k: Math.round(lastK * 10) / 10,
+          stoch_d: Math.round(lastD * 10) / 10,
+          prev_k: Math.round(prevK * 10) / 10,
+          prev_d: Math.round(prevD * 10) / 10,
+          zone,
+          cross_over: crossOver,
+          cross_under: crossUnder,
+          divergence,
+          price: lastPrice,
+          volume_ratio: Math.round((volumes.slice(-3).reduce((a, b) => a + b, 0) / 3 / avgVolume) * 100) / 100,
+        };
+        tfResults.push(tfResult);
+      }
+
+      const oversoldTFs = tfResults.filter(r => r.zone === 'OVERSOLD').length;
+      const overboughtTFs = tfResults.filter(r => r.zone === 'OVERBOUGHT').length;
+      const bullishTFs = tfResults.filter(r => r.zone === 'OVERSOLD' || (r.zone === 'BULLISH' && r.cross_over)).length;
+      const bearishTFs = tfResults.filter(r => r.zone === 'OVERBOUGHT' || (r.zone === 'BEARISH' && r.cross_under)).length;
+      const divergenceTF = tfResults.filter(r => r.divergence && r.divergence.type.includes('BULL'));
+      const bearDivTF = tfResults.filter(r => r.divergence && r.divergence.type.includes('BEAR'));
+
+      let direction = 'NEUTRAL', score = 0;
+      if (oversoldTFs >= 2 || (oversoldTFs >= 1 && bullishTFs >= 2)) { direction = 'BULL'; score = 30 + oversoldTFs * 15; }
+      else if (overboughtTFs >= 2 || (overboughtTFs >= 1 && bearishTFs >= 2)) { direction = 'BEAR'; score = 30 + overboughtTFs * 15; }
+      else if (bullishTFs >= bearishTFs) { direction = 'BULL'; score = bullishTFs * 10; }
+      else { direction = 'BEAR'; score = bearishTFs * 10; }
+
+      if (direction === 'BULL' && divergenceTF.length > 0) score += 15 * divergenceTF.length;
+      if (direction === 'BEAR' && bearDivTF.length > 0) score += 15 * bearDivTF.length;
+
+      results.push({
+        symbol,
+        success: true,
+        direction,
+        score: Math.min(100, score),
+        oversold_tfs: oversoldTFs,
+        overbought_tfs: overboughtTFs,
+        tf_results: tfResults,
+        convergence: oversoldTFs >= 3 ? '3-TF OVERSOLD' : overboughtTFs >= 3 ? '3-TF OVERBOUGHT' :
+          oversoldTFs >= 2 ? '2-TF OVERSOLD' : overboughtTFs >= 2 ? '2-TF OVERBOUGHT' :
+          divergenceTF.length >= 2 ? 'MULTI-TF DIV BULL' : bearDivTF.length >= 2 ? 'MULTI-TF DIV BEAR' :
+          divergenceTF.length === 1 ? `${divergenceTF[0].divergence.type} on ${divergenceTF[0].timeframe}` : 'NO CONFLUENCE',
+      });
+    } catch (err) {
+      results.push({ symbol, success: false, error: err.message });
+    }
+  }
+
+  const passed = results.filter(r => r.success);
+  passed.sort((a, b) => (b.score) - (a.score));
+  const top = passed.slice(0, top_n);
+
+  return {
+    success: true,
+    timeframes,
+    scanned: results.length,
+    passed: passed.length,
+    failed: results.length - passed.length,
+    top_results: top,
+    all_results: results,
+  };
+}
+
 export async function scanCoins({ symbols, timeframe = '60', bars = 30, volume_min = 10, top_n = 10, htf = null } = {}) {
   if (!symbols || symbols.length === 0) throw new Error('symbols array required');
 

@@ -1,19 +1,51 @@
 ---
 name: coin-selection
-description: Markov chain MTF coin scanner — find momentum candidates using Markov transition matrices, entropy analysis, and HTF trend context.
+description: 3-TF StochRSI coin scanner — find momentum candidates using StochRSI overbought/oversold zones and hidden divergence across 3 timeframes.
 ---
 
-# Coin Selection — Markov MTF Momentum Scanner
+# Coin Selection — 3-TF StochRSI Momentum Scanner
 
-Goal: Use Markov chain analysis on the entry timeframe to identify coins with predictable momentum paths, cross-referenced with higher-TF trend context. Entry on breakout momentum, validated by low-entropy transition matrices and HTF alignment.
+Goal: Use StochRSI across 3 timeframes (1H, 4H, D) to identify coins at extreme readings or with hidden divergence. Entry on oversold bounces or overbought pullbacks validated by multi-TF confluence.
+
+---
+
+## Core Concept
+
+Instead of Markov chain analysis, we use **StochRSI (14, 3, 3)** across **3 timeframes** for a cleaner, more intuitive signal:
+
+| TF | Role | Purpose |
+|----|------|---------|
+| **1H** | Fast / Entry | Find the trigger — cross up from oversold or cross down from overbought |
+| **4H** | Medium / Confirmation | Trend alignment — is the medium TF supporting the move? |
+| **D** | Slow / Trend | HTF context — overbought/oversold on daily defines the macro extreme |
+
+### StochRSI Zones
+
+| Zone | StochRSI %K | Meaning |
+|------|------------|---------|
+| **OVERSOLD** | ≤ 20 | Potential bounce zone (BUY bias) |
+| **BEARISH** | 20–50 | Bearish momentum |
+| **BULLISH** | 50–80 | Bullish momentum |
+| **OVERBOUGHT** | ≥ 80 | Potential pullback zone (SELL bias) |
+
+### Divergence Types
+
+| Divergence | Price | StochRSI | Meaning |
+|-----------|-------|----------|---------|
+| **Hidden Bullish** | Higher Low | Lower Low | Uptrend continuation — buy pullback |
+| **Hidden Bearish** | Lower High | Higher High | Downtrend continuation — sell rally |
+| **Regular Bullish** | Lower Low | Higher Low | Trend reversal up |
+| **Regular Bearish** | Higher High | Lower High | Trend reversal down |
 
 ---
 
 ## Step 0: Pre-Scan — Fetch Top Volume Universe
 
-Get the top Binance USDT pairs by 24h quote volume:
+**Quick start (one-shot):** `bash scripts/coin-stochrsi-scan.sh [count=20] [timeframes=60,240,D] [volume_min_m=5]`
 
-### 0a. Fetch Live from Binance API
+**Step-by-step** — fetch universe then run `coin_scan_stochrsi`:
+
+Get the top 20 Binance USDT pairs by 24h quote volume:
 
 ```
 curl -s 'https://api.binance.com/api/v3/ticker/24hr' | node -e "
@@ -33,140 +65,86 @@ Filter rules:
 - Sort descending by quote volume
 - Take top 20
 
-### 0b. Alternative: Watchlist
-
-If TradingView watchlist already contains the universe, use:
-
-```
-watchlist_get()
-```
-
 ---
 
-## Step 1: Run Markov Scan
+## Step 1: Run StochRSI 3-TF Scan
 
-Use the `coin_scan` MCP tool:
+Use the `coin_scan_stochrsi` MCP tool:
 
 ```
-coin_scan(
+coin_scan_stochrsi(
   symbols: ["BINANCE:BTCUSDT", "BINANCE:ETHUSDT", ...],
-  timeframe: "240",       # entry TF — 4H or 1H typical
-  htf: "D",               # higher TF for trend context
-  bars: 30,               # bars for Markov matrix
-  volume_min: 5,          # $5M minimum avg volume
-  top_n: 10               # return top 10 results
+  timeframes: ["60", "240", "D"],    # 1H, 4H, Daily
+  bars: 50,                           # bars per TF for StochRSI calc
+  volume_min: 5,                      # $5M minimum avg volume
+  top_n: 10                           # return top 10 results
 )
 ```
 
 ### What happens internally:
 
-**1. Bar Data Acquisition** — Per symbol, switch chart to that symbol + entry TF, fetch OHLCV bars (default 30).
+**1. Bar Data Acquisition** — Per symbol and per TF, switch chart resolution, fetch 50 OHLCV bars.
 
-**2. Volume Filter** — Compute average daily volume in USD. If below `volume_min` (default $5M), skip.
+**2. StochRSI Calculation** — Computed locally from OHLCV data (not dependent on TV studies):
 
-**3. Volume Ratio** — avg volume of last 3 bars / avg volume of all bars. > 1.0 = recent volume expansion.
+- **RSI(14)** — Standard Wilder's RSI with EMA smoothing
+- **Stochastic of RSI** — %K = (current RSI - min RSI over 14 periods) / (max RSI - min RSI) * 100
+- **%K Line** — 3-period SMA of raw StochRSI
+- **%D Line** — 3-period SMA of %K
 
-**4. State Classification** — Classify each bar's return into one of 5 Markov states:
+**3. Zone Classification** — Per TF:
 
-| State | Label | Return Range |
-|-------|-------|-------------|
-| SS | Strong Bull | > +1.5% |
-| SB | Weak Bull | +0.5% to +1.5% |
-| N | Neutral | -0.5% to +0.5% |
-| WB | Weak Bear | -1.5% to -0.5% |
-| WS | Strong Bear | < -1.5% |
+| %K Value | Zone |
+|---------|------|
+| ≤ 20 | OVERSOLD |
+| 20–50 | BEARISH |
+| 50–80 | BULLISH |
+| ≥ 80 | OVERBOUGHT |
 
-**5. Transition Matrix** — Build 5×5 probability matrix `P[i][j]` = probability of transitioning from state i to state j.
+**4. Crossover Detection** — Compare %K vs %D on last 2 bars:
+- `cross_over`: %K crosses above %D (bullish signal within zone)
+- `cross_under`: %K crosses below %D (bearish signal within zone)
 
-Example row: SS→{SS: 0.4, SB: 0.3, N: 0.2, WB: 0.05, WS: 0.05} = strong bull tends to continue strong or weak bull.
+**5. Divergence Detection** — Compare last 3 pivot points in price vs StochRSI:
+- Checks the last 3 valid (non-null) StochRSI values against corresponding price closes
+- Detects 4 types: HIDDEN_BULL, HIDDEN_BEAR, REGULAR_BULL, REGULAR_BEAR
+- Strength rating: STRONG (confirmed by latest pivot) or MODERATE (last 2 pivots only)
 
-**6. Markov Metrics:**
+**6. Scoring:**
 
-| Metric | Formula | Meaning |
-|--------|---------|---------|
-| **Entropy** | `-Σ p * log₂(p)` per row, averaged | Unpredictability. Low (<1.0) = predictable path. Max 2.32. |
-| **Momentum Persistence** | `(P(SS→SS) + P(SS→SB) + P(WS→WS) + P(WS→WB)) / 2` | How likely a strong move persists. 0-1. |
-| **Directional Bias** | Σ(bullish transition probs) - Σ(bearish transition probs) | Net directional tendency. -1 to +1. |
-| **Steady State** | π = πP (iterated to convergence) | Long-run equilibrium distribution over states. |
-| **Trend Probability** | π(SS) + π(WS) | Probability of being in a trend state long-term. |
-| **Total Move %** | `(close_last - close_first) / close_first * 100` | Net move over the period. |
+| Condition | Score Contribution |
+|-----------|-------------------|
+| 3-TF oversold alignment | 75+ (30 base + 15 per OS TF) |
+| 2-TF oversold alignment | 60 (30 + 15 × 2) |
+| 3-TF overbought alignment | 75+ |
+| 2-TF overbought alignment | 60 |
+| Bullish convergence (OS crosses + bullish) | 10 per TF |
+| Bearish convergence (OB crosses + bearish) | 10 per TF |
+| Bullish divergence bonus (per TF) | +15 |
+| Bearish divergence bonus (per TF) | +15 |
 
-**7. Reliability Score (0-1):**
-
-```
-reliability = persistence * 0.4 + entropy_score * 0.3 + bias_strength * 0.3
-```
-
-Where:
-- persistence = momentum_persistence (0-1)
-- entropy_score = max(0, 1 - avg_entropy / 2.32)
-- bias_strength = min(|directional_bias| / 2, 1)
-
-**8. Direction** — Based on last state:
-- SS or SB → **BULL**
-- WS or WB → **BEAR**
-- N → **NEUTRAL**
-
-**9. HTF Context (if htf param provided):**
-
-Switch chart to HTF (e.g. D), compute:
-- **Price vs 21-EMA**: ABOVE or BELOW
-- **RSI Zone** (proxied): avg_return * 10 + 50. BULL > 55, BEAR < 45, NEUTRAL otherwise
-- **MACD Signal**: 12/26 EMA crossover. BULL if line > signal
-- **Trend**: majority vote of 3 signals (≥2 agree)
-
-**10. MTF Score:**
-```
-mtf_score = reliability
-if HTF trend == direction:    +0.20
-if HTF trend opposes direction: -0.15
-mtf_score = clamp(0, 1)
-```
-
-**11. Hidden Markov Model (HMM) Analysis:**
-
-A 3-state Gaussian HMM (UP / DOWN / RANGE) is fitted via Baum-Welch (15 EM iterations) on the return series, with k-means initialization for the emission parameters.
-
-| Metric | Description |
-|--------|-------------|
-| **HMM Regime** | Most likely hidden state at last bar: UP, DOWN, or RANGE |
-| **HMM Direction** | Smoothed directional signal: BULL (UP state dominant), BEAR (DOWN state dominant), or NEUTRAL (RANGE) |
-| **HMM Stability** | `1 - regime_changes / (T-1)` — how stable the hidden state path is. Higher = cleaner regime. |
-| **State Probs** | Posterior probability of each hidden state at the last bar (up_pct, down_pct, range_pct) |
-
-**HMM vs Markov comparison:**
-
-| Aspect | Markov (observable) | HMM (hidden) |
-|--------|--------------------|--------------|
-| States | Based on single-bar returns (noisy) | Inferred from return distribution (smoothed) |
-| Noise | Flags every >1.5% bar as "Strong" | Separates signal from noise via emission probs |
-| Regime | No regime detection | Explicit UP/DOWN/RANGE regime |
-| Stability | Not measured | `regime_stability` score |
-
-**Interpretation:** If Markov says BULL and HMM says UP with high stability → strong alignment. If Markov says BULL but HMM says RANGE → the "bull" is likely noise within a range, not a sustained trend.
+Score capped at 100.
 
 ---
 
 ## Step 2: Filter Candidates
 
-From the ranked results, evaluate:
-
-| Signal | Strong | Weak | Skip |
-|--------|--------|------|------|
-| **MTF Score** | > 0.5 | 0.3-0.5 | < 0.3 |
-| **Entropy** | < 1.0 (predictable) | 1.0-1.5 | > 1.5 (random walk) |
-| **Reliability** | > 0.4 | 0.25-0.4 | < 0.25 |
-| **Volume Ratio** | > 0.8 | 0.5-0.8 | < 0.5 |
-| **HTF Alignment** | HTF trend = direction | HTF neutral | HTF opposite |
+| Signal | Strong | Moderate | Skip |
+|--------|--------|----------|------|
+| **Score** | > 60 | 30–60 | < 30 |
+| **Convergence** | 3-TF alignment | 2-TF alignment | 1 TF or none |
+| **Divergence** | 2+ TFs with hidden div | 1 TF with hidden div | No divergence |
 
 **Priority order:**
-1. High MTF score + low entropy + HTF aligned = **PRIMARY CANDIDATE**
-2. High reliability + HTF neutral = **SECONDARY** (check Mxwll levels)
-3. HTF conflicting = **SKIP** unless volume ratio > 1.0 and entropy < 0.8
+1. 3-TF oversold with hidden bull divergence = **PRIMARY BUY**
+2. 3-TF overbought with hidden bear divergence = **PRIMARY SELL**
+3. 2-TF oversold/overbought = **SECONDARY**
+4. Hidden divergence on 2+ TFs in trend direction = **EDGE**
+5. Single TF with no divergence = **SKIP**
 
 ---
 
-## Step 3: Visual Confirm (Top 1-2 Candidates)
+## Step 3: Visual Confirm (Top 1–2 Candidates)
 
 For each top candidate:
 
@@ -177,11 +155,10 @@ capture_screenshot(region: "chart")
 ```
 
 **Kill signals:**
-- Long wicks on most recent bar
-- Volume spike then cliff on last bar
-- Price curling toward VWAP
-- Doji at extreme of run
-- Consecutive bars with shrinking bodies
+- Long wicks on recent bar (rejection at zone)
+- Volume spike then cliff (exhaustion)
+- StochRSI curling at extreme without cross
+- Divergence contradicting the signal direction
 
 ---
 
@@ -193,14 +170,13 @@ data_get_pine_labels(study_filter: "Mxwll Suite")
 ```
 
 Check:
-- How many Mxwll lines sit within 5-10% of current price?
-- Is price approaching a labeled resistance/support?
+- Is price near a key Mxwll level that would confirm/reject the StochRSI signal?
 - Structure labels (BoS, CHoCH, HH, LL) — confirm trend direction
 
 | Overhead Lines | Impact |
 |---------------|--------|
 | 0 lines | CLEAR AIR — high confidence |
-| 1-3 lines | MODERATE — expected levels |
+| 1–3 lines | MODERATE — expected levels |
 | 4+ lines | DENSE ZONE — momentum likely stalls |
 
 ---
@@ -208,27 +184,22 @@ Check:
 ## Step 5: Report & Handoff
 
 ```
-Rank | Symbol              Dir     MTFSc  Rel    Entropy  Persist  VolR  Move%  HTF_Trend  State        HMM_Reg    HMM_Stab  Priority
- 1   | SOLUSDT             BULL      72    55     0.82    0.450   1.2  +8.4  BULL       Strong Bull  UP         0.833     PRIMARY
- 2   | PEPEUSDT            BULL      61    48     1.10    0.380   0.9  +14.2 BULL       Weak Bull    RANGE      0.621     WATCH
+Rank | Symbol              Dir     Score  Convergence                    OS  OB  1H          4H          D
+ 1   | SOLUSDT             BULL      75    3-TF OVERSOLD                  3   0  OVERS:CROSS  OVERS       OVERS
+ 2   | WIFUSDT             BULL      60    2-TF OVERSOLD                  2   0  OVERS       BULL        BULL
+ 3   | ETHUSDT             BEAR      75    3-TF OVERBOUGHT + HIDDEN_BEAR  0   3  OVERB:CROSS  OVERB:DIV   OVERB
 ```
 
 | Column | Description |
 |--------|-------------|
-| Rank | Position by MTF score |
+| Rank | Position by score |
 | Symbol | Trading pair |
-| Dir | Direction from last state (BULL/BEAR/NEUTRAL) |
-| MTFSc | mtf_score * 100 (0-100) |
-| Rel | reliability * 100 (0-100) |
-| Entropy | Average entropy across states (lower = more predictable) |
-| Persist | Momentum persistence (0-1) |
-| VolR | Volume ratio (last 3 bars / all bars avg) |
-| Move% | Total net move over the period |
-| HTF_Trend | Higher timeframe trend (BULL/BEAR/NEUTRAL) |
-| State | Last state label (Strong Bull / Weak Bear / etc.) |
-| HMM_Reg | HMM hidden regime (UP / DOWN / RANGE) — smoothed, less noisy |
-| HMM_Stab | HMM regime stability (0-1) — higher = cleaner trend regime |
-| Priority | PRIMARY / SECONDARY / WATCH / EDGE / SKIP |
+| Dir | Direction (BULL/BEAR/NEUTRAL) |
+| Score | 0–100 composite score |
+| Convergence | Signal description (3-TF OVERSOLD, MULTI-TF DIV BULL, etc.) |
+| OS | Count of TFs in oversold zone |
+| OB | Count of TFs in overbought zone |
+| 1H/4H/D | Zone + signal per TF (OVERS, OVERB, BULL, BEAR, CROSS=cross, DIV=divergence) |
 
 Handoff top pick to chart-analyst for full institutional pipeline.
 
@@ -236,38 +207,62 @@ Handoff top pick to chart-analyst for full institutional pipeline.
 
 ## Interpretation Guide
 
-### What a Good Result Looks Like
+### What a Good Bullish Result Looks Like
 
 ```
-Symbol: SOLUSDT     Dir: BULL    MTFSc: 72    Rel: 55    Entropy: 0.82
-Persist: 0.450     VolR: 1.2    Move: +8.4%  HTF: BULL  State: Strong Bull
+SOLUSDT  BULL  Score: 75  3-TF OVERSOLD
+  1H: OVERSOLD + cross over %K > %D
+  4H: OVERSOLD (deep, < 15)
+  D:  OVERSOLD (first time in 3 months)
 ```
 
-- MTF score > 0.5 = reliable signal
-- Entropy < 1.0 = Markov path is predictable (low randomness)
-- Persistence > 0.3 = strong moves tend to continue
-- Vol Ratio > 1.0 = volume expanding (live interest)
-- HTF aligned = tailwind from higher timeframe
-- Move% < 20% = still room to run (not extended)
+- All 3 TFs oversold = rare, high-probability bounce setup
+- Entry TF (1H) already crossing = early entry signal
+- No divergence needed — extreme alignment is enough
 
-### What a Weak Result Looks Like
+### What a Good Bearish Result Looks Like
 
 ```
-Symbol: DOGEUSDT    Dir: BULL    MTFSc: 31    Rel: 22    Entropy: 1.85
-Persist: 0.150     VolR: 0.6    Move: +2.1%  HTF: NEUTRAL  State: Weak Bull
+WIFUSDT  BEAR  Score: 75  3-TF OVERBOUGHT + HIDDEN_BEAR
+  1H: OVERBOUGHT + cross under
+  4H: OVERBOUGHT + HIDDEN_BEAR (price HH, stoch LH)
+  D:  BULLISH (not overbought yet — room to run)
 ```
 
-- MTF score < 0.4 = low conviction
-- Entropy > 1.5 = near-random walk (no edge)
-- Persistence < 0.2 = strong moves don't sustain
-- Vol Ratio < 0.8 = volume drying up
-- HTF neutral = no tailwind or headwind
-- Skip — insufficient edge
+- 2 TFs overbought + hidden bear divergence on 4H = high-confidence short
+- Daily not overbought = macro trend still has room
+- Hidden bear divergence confirms downtrend continuation
+
+### What to Skip
+
+```
+DOGEUSDT  BULL  Score: 20  NO CONFLUENCE
+  1H: OVERSOLD
+  4H: BEARISH
+  D:  BULLISH
+```
+
+- Only 1 TF oversold
+- 4H and 1H disagree on direction
+- No divergence to tip the scale
+- Skip — insufficient confluence
 
 ---
 
 ## Execution Estimate
 
-- Top 20 symbols: ~2-3 min (via coin_scan MCP tool)
-- Visual confirm + Mxwll check for top 1-2: ~3-5 min
-- **Total: ~5-8 min per scan session**
+- Top 5 symbols × 3 TFs: ~3–5 min (via coin_scan_stochrsi MCP tool)
+- Mxwll check for top 1–2: ~3–5 min
+
+---
+
+## Comparison: Markov vs StochRSI
+
+| Aspect | Markov Scanner | StochRSI Scanner |
+|--------|---------------|------------------|
+| Signal | Transition matrix + HMM | StochRSI zones + divergence |
+| Timeframes | Entry TF + HTF only | 3 fixed TFs (1H, 4H, D) |
+| Scoring | Entropy, persistence, reliability | Zone alignment, crossovers, divergence |
+| Edge | Predictable Markov paths | Extreme readings + hidden divergence |
+| Strengths | Trending markets with momentum | Mean reversion + trend continuation |
+| Weaknesses | Noisy in ranging markets | Less effective in strong trends |

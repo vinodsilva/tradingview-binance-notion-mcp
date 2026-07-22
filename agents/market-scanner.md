@@ -1,3 +1,4 @@
+
 ---
 name: market-scanner
 description: Iterative multi-market scanner that cycles through crypto, futures, and stocks until a grade-A or grade-B setup is found. Expands universe and changes timeframes on each pass.

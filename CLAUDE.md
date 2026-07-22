@@ -49,7 +49,7 @@ Agents (`agents/`) are role definitions — they tell me *who to be* and *what t
 | Trigger phrase | Agent | Skill | Purpose |
 |---------------|-------|-------|---------|
 | "Act as **chart-analyst** on ES1!" | [`agents/chart-analyst.md`](agents/chart-analyst.md) | [`skills/chart-analysis/SKILL.md`](skills/chart-analysis/SKILL.md) | 10-stage institutional pipeline: setup → volume → structure → fib → momentum → confluence → sizing → execution → report |
-| "Act as **coin-scout** on Binance" | [`agents/coin-selection.md`](agents/coin-selection.md) | [`skills/coin-selection/SKILL.md`](skills/coin-selection/SKILL.md) | Markov chain MTF momentum scanner — screen top coins, rank by entropy + HTF alignment |
+| "Act as **coin-scout** on Binance" | [`agents/coin-selection.md`](agents/coin-selection.md) | [`skills/coin-selection/SKILL.md`](skills/coin-selection/SKILL.md) | 3-TF StochRSI scanner — overbought/oversold + hidden divergence on 1H, 4H, D |
 | "Act as **market-scanner** on NQ, ES, YM" | [`agents/market-scanner.md`](agents/market-scanner.md) | [`skills/multi-symbol-scan/SKILL.md`](skills/multi-symbol-scan/SKILL.md) | Iterative multi-market scan — cycles crypto → futures → stocks until grade A/B found |
 | "Act as **performance-analyst**" | [`agents/performance-analyst.md`](agents/performance-analyst.md) | [`skills/strategy-report/SKILL.md`](skills/strategy-report/SKILL.md) | Strategy backtest analysis: metrics, trade list, equity curve, recommendations |
 | "Act as **replay-coach**" | [`agents/replay-coach.md`](agents/replay-coach.md) | [`skills/replay-practice/SKILL.md`](skills/replay-practice/SKILL.md) | Guide practice trading in replay mode: step bars, take trades, track P&L |
@@ -91,10 +91,11 @@ Agents (`agents/`) are role definitions — they tell me *who to be* and *what t
 - `batch_run` with `symbols: ["ES1!", "NQ1!", "YM1!"]` and `action: "screenshot"` or `"get_ohlcv"`
 
 ### "Scan crypto coins for momentum"
-Use the **coin-selection** workflow:
-1. Fetch top Binance USDT pairs by volume (via curl or `watchlist_get`)
-2. Run `coin_scan(timeframe: 240, htf: D, volume_min: 5, top_n: 10)` for Markov chain analysis
-3. Pass top candidates to chart-analyst for full pipeline grading
+Use the **coin-selection** workflow with **3-TF StochRSI** (replaces Markov scanner):
+1. Fetch top Binance USDT pairs by volume (via `bash scripts/coin-stochrsi-scan.sh` or curl)
+2. Run `coin_scan_stochrsi(timeframes: ["60", "240", "D"], volume_min: 5, top_n: 10)` for StochRSI overbought/oversold + hidden divergence analysis
+3. Filter by score (> 60 strong, 30-60 moderate, < 30 skip)
+4. Pass top candidates to chart-analyst for full pipeline grading
 
 See `skills/coin-selection/SKILL.md` and `agents/coin-selection.md` for full details.
 

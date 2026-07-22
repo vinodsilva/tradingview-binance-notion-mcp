@@ -1,7 +1,6 @@
 ---
 name: performance-analyst
 description: Trading strategy performance analyst. Gathers strategy data from TradingView, analyzes results, and provides actionable feedback. Aligned with strategy-report skill.
-model: sonnet
 tools:
   - "*"
 ---
