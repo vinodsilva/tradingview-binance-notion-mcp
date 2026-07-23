@@ -8,3 +8,10 @@ discovery-log.json
 .env
 .env.example
 .env.enc
+.ruflo/
+.ruvector/
+.claude/
+.claude-flow/
+.swarm/
+ruvector.db
+.ruvector.db*
