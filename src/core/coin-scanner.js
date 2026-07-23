@@ -1,5 +1,9 @@
 import { evaluate, evaluateAsync, safeString } from '../connection.js';
 import { waitForChartReady } from '../wait.js';
+import {
+  calcADX, calcATR, findPivotPoints, detectEnhancedDivergence,
+  structureContext, volumeAnalysis, calculateRealEdgeScore, classifyVolatilityRegime
+} from './coin-edge.js';
 
 const API = 'window.TradingViewApi._activeChartWidgetWV.value()';
 
@@ -7,6 +11,7 @@ const STATES = ['SS', 'SB', 'N', 'WB', 'WS'];
 const STATE_LABELS = { SS: 'Strong Bull', SB: 'Weak Bull', N: 'Neutral', WB: 'Weak Bear', WS: 'Strong Bear' };
 
 const HTF_EMA = 21;
+const ATR_PERIOD = 14;
 
 function classifyReturn(ret) {
   if (ret > 1.5) return 'SS';
@@ -530,6 +535,7 @@ export async function scanStochRSI({ symbols, timeframes = ['60', '240', 'D'], b
         const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
 
         let lastK, lastD, prevK, prevD, kSeries;
+        const closes = priceData.map(b => b.close);
 
         if (stochStudy && stochStudy.found && stochStudy.k.length >= 12 && stochStudy.k[stochStudy.k.length - 1] !== undefined) {
           const sk = stochStudy.k.filter(v => v !== null && v !== undefined);
@@ -540,7 +546,6 @@ export async function scanStochRSI({ symbols, timeframes = ['60', '240', 'D'], b
           prevD = sd[sd.length - 2];
           kSeries = sk;
         } else {
-          const closes = priceData.map(b => b.close);
           const stoch = calcStochRSI(closes);
           lastK = stoch.k[stoch.k.length - 1];
           lastD = stoch.d[stoch.d.length - 1];
@@ -555,6 +560,26 @@ export async function scanStochRSI({ symbols, timeframes = ['60', '240', 'D'], b
 
         const divergence = detectDivergence(highs, lows, kSeries);
 
+        const adx = calcADX(closes, highs, lows);
+        const atr = calcATR(highs, lows, closes);
+        const pivots = findPivotPoints(highs, lows);
+        const enhancedDiv = detectEnhancedDivergence(priceData, kSeries, pivots);
+        const structCtx = structureContext(lastPrice, pivots);
+        const volAnalysis = volumeAnalysis(volumes, avgVolume);
+        let volRegime = { regime: 'UNKNOWN', ratio: 0 };
+        if (atr !== null) {
+          const atrValues = [];
+          for (let i = ATR_PERIOD + 1; i < priceData.length; i++) {
+            atrValues.push(calcATR(
+              priceData.slice(0, i + 1).map(b => b.high),
+              priceData.slice(0, i + 1).map(b => b.low),
+              priceData.slice(0, i + 1).map(b => b.close)
+            ) || 0);
+          }
+          const avgATR = atrValues.length > 0 ? atrValues.reduce((a, b) => a + b, 0) / atrValues.length : 0;
+          volRegime = classifyVolatilityRegime(atr, avgATR);
+        }
+
         const tfResult = {
           timeframe: tf,
           stoch_k: Math.round(lastK * 10) / 10,
@@ -567,6 +592,14 @@ export async function scanStochRSI({ symbols, timeframes = ['60', '240', 'D'], b
           divergence,
           price: lastPrice,
           volume_ratio: Math.round((volumes.slice(-3).reduce((a, b) => a + b, 0) / 3 / avgVolume) * 100) / 100,
+          edge: {
+            adx,
+            atr,
+            divergence_enhanced: enhancedDiv,
+            structure: structCtx,
+            volume: volAnalysis,
+            volatility_regime: volRegime,
+          },
         };
         tfResults.push(tfResult);
       }
@@ -587,6 +620,14 @@ export async function scanStochRSI({ symbols, timeframes = ['60', '240', 'D'], b
       if (direction === 'BULL' && divergenceTF.length > 0) score += 15 * divergenceTF.length;
       if (direction === 'BEAR' && bearDivTF.length > 0) score += 15 * bearDivTF.length;
 
+      const edgeData = {
+        adx: tfResults.filter(r => r.edge).map(r => r.edge.adx),
+        divergence: tfResults.filter(r => r.edge).map(r => r.edge.divergence_enhanced),
+        volume: tfResults.filter(r => r.edge).map(r => r.edge.volume),
+        structure: tfResults.filter(r => r.edge).map(r => r.edge.structure),
+      };
+      const realEdge = calculateRealEdgeScore(tfResults, edgeData);
+
       results.push({
         symbol,
         success: true,
@@ -599,6 +640,11 @@ export async function scanStochRSI({ symbols, timeframes = ['60', '240', 'D'], b
           oversoldTFs >= 2 ? '2-TF OVERSOLD' : overboughtTFs >= 2 ? '2-TF OVERBOUGHT' :
           divergenceTF.length >= 2 ? 'MULTI-TF DIV BULL' : bearDivTF.length >= 2 ? 'MULTI-TF DIV BEAR' :
           divergenceTF.length === 1 ? `${divergenceTF[0].divergence.type} on ${divergenceTF[0].timeframe}` : 'NO CONFLUENCE',
+        edge_score: realEdge.score,
+        edge_conviction: realEdge.conviction,
+        edge_components: realEdge.components,
+        edge_adx_regime: edgeData.adx.filter(a => a).map(a => a.regime).join('/'),
+        edge_volatility: tfResults.filter(r => r.edge && r.edge.volatility_regime).map(r => r.edge.volatility_regime.regime).join('/'),
       });
     } catch (err) {
       results.push({ symbol, success: false, error: err.message });

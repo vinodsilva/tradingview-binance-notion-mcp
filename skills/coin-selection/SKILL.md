@@ -127,26 +127,104 @@ Score capped at 100.
 
 ---
 
+## Step 1b: REAL-EDGE FRAMEWORK
+
+The scan now includes a composite **edge score** (0–100) alongside the basic StochRSI score. Edge analyzes five dimensions:
+
+| Dimension | Weight | Source | What It Measures |
+|-----------|--------|--------|------------------|
+| **StochRSI Alignment** | 30% | Zone + cross per TF | How aligned StochRSI zones are across timeframes |
+| **ADX Regime** | 20% | Directional movement | Trending (ADX ≥ 25) vs Ranging (ADX < 25) — trending = stronger signals |
+| **Divergence Quality** | 25% | Multi-pivot scan | Detects ALL regular + hidden divergences across multiple swing points (not just last 2) |
+| **Volume Confirmation** | 15% | Volume trend + spikes | Rising volume trend, spike on breakout, climax warning |
+| **Structure Context** | 10% | Pivot proximity | Price near a swing high/low adds 20pts — key levels attract reactions |
+
+### Edge Conviction Levels
+
+| Edge Score | Conviction | Action |
+|-----------|------------|--------|
+| ≥ 70 | **HIGH** | Full confidence — all dimensions align |
+| 50–69 | **MODERATE** | Valid — check kill signals before entry |
+| 30–49 | **LOW** | Caution — only take with additional confluence |
+| < 30 | **NOISE** | Skip — insufficient edge |
+
+### ADX Regime Filter
+
+ADX (Average Directional Index) differentiates trending vs ranging markets:
+
+| ADX | Regime | Edge Impact |
+|-----|--------|-------------|
+| ≥ 25 | **TRENDING** | +15pts — StochRSI extremes mean reversion or trend continuation |
+| < 25 | **RANGING** | +5pts — StochRSI zones less reliable, expect false breaks |
+
+Combined with ±DI direction:
+- **+DI > -DI** = bullish trend (ADX ≥ 25: strong uptrend)
+- **-DI > +DI** = bearish trend (ADX ≥ 25: strong downtrend)
+- ADX < 25 on all TFs = ranging — avoid trend-following entries
+
+### Enhanced Divergence Detection
+
+Instead of scanning only the last 2 swing points, the edge engine finds ALL pivot points and compares every consecutive pair:
+
+| Finding | Score Boost |
+|---------|-------------|
+| Regular divergence (any pair) | +30 (trend reversal signal) |
+| Hidden divergence (any pair) | +15 (trend continuation signal) |
+| 2+ divergences detected | +15 (multi-pivot confirmation) |
+| Divergence at structural level | +25 (if price near swing high/low) |
+| Volume confirms divergence bar | +20 |
+
+### Volume Confirmation
+
+| Volume Signal | Meaning |
+|--------------|---------|
+| **Rising trend** | Volume increasing over the period — trend has conviction |
+| **Spike** (> 1.5× avg) | Breakout/pullback with participation — valid move |
+| **Climax** (> 2.5× avg) | Exhaustion risk — caution on continuation |
+| **Falling trend** | Volume drying up — trend weakening |
+
+### Volatility Regime
+
+| ATR Ratio | Regime | Implication |
+|-----------|--------|-------------|
+| < 0.5× avg | **LOW** | Compression — breakout/breakdown pending |
+| 0.5–1.3× | **NORMAL** | Standard conditions |
+| 1.3–2.0× | **HIGH** | Momentum phase — larger stops needed |
+| > 2.0× | **EXTREME** | News event capitulation — wait for stabilization |
+
+---
+
 ## Step 2: Filter Candidates
+
+Primary sort by **StochRSI score**, secondary sort by **edge_score**:
 
 | Signal | Strong | Moderate | Skip |
 |--------|--------|----------|------|
 | **Score** | > 60 | 30–60 | < 30 |
+| **Edge Score** | ≥ 50 | 30–49 | < 30 |
 | **Convergence** | 3-TF alignment | 2-TF alignment | 1 TF or none |
 | **Divergence** | 2+ TFs with hidden div | 1 TF with hidden div | No divergence |
+| **ADX Regime** | Trending on 2+ TFs | Trending on 1 TF | All ranging |
 
 **Priority order:**
-1. 3-TF oversold with hidden bull divergence = **PRIMARY BUY**
-2. 3-TF overbought with hidden bear divergence = **PRIMARY SELL**
-3. 2-TF oversold/overbought = **SECONDARY**
-4. Hidden divergence on 2+ TFs in trend direction = **EDGE**
-5. Single TF with no divergence = **SKIP**
+1. Score > 60 AND edge_score ≥ 50 = **PRIMARY** (full confluence)
+2. Score > 60 OR edge_score ≥ 50 = **SECONDARY** (partial confluence)
+3. Score 30–60 AND edge_score 30–49 = **EDGE** (weak signal, check manually)
+4. Edge ADX trending on 2+ TFs = **ADX BOOST** (add to watchlist even if StochRSI moderate)
+5. edge_conviction = NOISE = **SKIP**
 
 ---
 
 ## Step 3: Visual Confirm (Top 1–2 Candidates)
 
-For each top candidate:
+For each top candidate check the edge data first, then the chart:
+
+**Quick check with edge data:**
+- `edge_conviction == "HIGH"` → high confidence, skip to Mxwll check
+- `edge_conviction == "MODERATE"` → check chart for visual confirmation
+- `edge_conviction == "LOW"` → kill unless StochRSI score > 60
+- Check `edge_adx_regime` — if "RANGING/RANGING/RANGING" on all TFs, beware false signals
+- Check `edge_volatility` — if "EXTREME" on any TF, wait for stabilization before entry
 
 ```
 chart_set_symbol("BINANCE:SOLUSDT")
@@ -159,6 +237,8 @@ capture_screenshot(region: "chart")
 - Volume spike then cliff (exhaustion)
 - StochRSI curling at extreme without cross
 - Divergence contradicting the signal direction
+- Edge ADX showing RANGING on 2+ TFs (signal likely weak)
+- Edge conviction is LOW or NOISE
 
 ---
 
@@ -184,10 +264,10 @@ Check:
 ## Step 5: Report & Handoff
 
 ```
-Rank | Symbol              Dir     Score  Convergence                    OS  OB  1H          4H          D
- 1   | SOLUSDT             BULL      75    3-TF OVERSOLD                  3   0  OVERS:CROSS  OVERS       OVERS
- 2   | WIFUSDT             BULL      60    2-TF OVERSOLD                  2   0  OVERS       BULL        BULL
- 3   | ETHUSDT             BEAR      75    3-TF OVERBOUGHT + HIDDEN_BEAR  0   3  OVERB:CROSS  OVERB:DIV   OVERB
+Rank | Symbol              Dir     Score  Edge  Conviction  ADX Regime       Volatility      Convergence
+ 1   | SOLUSDT             BULL      75     68    HIGH         TREND/TREND/TREND  NORM/NORM/LOW  3-TF OVERSOLD
+ 2   | WIFUSDT             BULL      60     45    MODERATE     RANG/TREND/TREND   NORM/NORM/NORM 2-TF OVERSOLD
+ 3   | ETHUSDT             BEAR      75     82    HIGH         TREND/TREND/RANG   NORM/HIGH/NORM  3-TF OB + HIDDEN_BEAR
 ```
 
 | Column | Description |
@@ -195,13 +275,26 @@ Rank | Symbol              Dir     Score  Convergence                    OS  OB 
 | Rank | Position by score |
 | Symbol | Trading pair |
 | Dir | Direction (BULL/BEAR/NEUTRAL) |
-| Score | 0–100 composite score |
-| Convergence | Signal description (3-TF OVERSOLD, MULTI-TF DIV BULL, etc.) |
-| OS | Count of TFs in oversold zone |
-| OB | Count of TFs in overbought zone |
-| 1H/4H/D | Zone + signal per TF (OVERS, OVERB, BULL, BEAR, CROSS=cross, DIV=divergence) |
+| Score | 0–100 StochRSI composite |
+| Edge | 0–100 real-edge composite |
+| Conviction | HIGH/MODERATE/LOW/NOISE |
+| ADX Regime | Per-TF trending/ranging status |
+| Volatility | Per-TF ATR regime (LOW/NORMAL/HIGH/EXTREME) |
+| Convergence | Signal description |
+
+**Edge data per TF** (visible in `tf_results[i].edge`):
+- `adx` — ADX value, ±DI direction, regime verdict
+- `atr` — ATR value for position sizing context
+- `divergence_enhanced` — all regular + hidden divergences across multiple pivot comparisons
+- `structure` — nearest swing high/low, distance %, pivot count
+- `volume` — spike, climax, trend direction, ratio
+- `volatility_regime` — LOW/NORMAL/HIGH/EXTREME classification
+
+**Good result:** Score > 60 AND Edge ≥ 50 AND ADX trending on 2+ TFs
+**Skip:** Edge < 30 OR edge_conviction = NOISE OR all TFs ranging
 
 Handoff top pick to chart-analyst for full institutional pipeline.
+
 
 ---
 
@@ -223,29 +316,39 @@ SOLUSDT  BULL  Score: 75  3-TF OVERSOLD
 ### What a Good Bearish Result Looks Like
 
 ```
-WIFUSDT  BEAR  Score: 75  3-TF OVERBOUGHT + HIDDEN_BEAR
+WIFUSDT  BEAR  Score: 75  Edge: 82  HIGH
+  ADX: D TRENDING(-DI>+DI), 4H TRENDING, 1H TRENDING
+  Divergence: 4H hidden bear (price HH, stoch LH) + 1H regular bear
+  Structure: at daily swing high, nearest resistance 0.5% above
+  Volume: rising trend, spike on breakdown bar 2.1x avg
   1H: OVERBOUGHT + cross under
-  4H: OVERBOUGHT + HIDDEN_BEAR (price HH, stoch LH)
-  D:  BULLISH (not overbought yet — room to run)
+  4H: OVERBOUGHT + HIDDEN_BEAR
+  D:  BULLISH (not OB yet — room to run, ADX trending)
 ```
 
 - 2 TFs overbought + hidden bear divergence on 4H = high-confidence short
+- ADX trending on 3 TFs = strong directional conviction
+- Multiple divergences (4H hidden + 1H regular) = multi-pivot confluence
 - Daily not overbought = macro trend still has room
-- Hidden bear divergence confirms downtrend continuation
 
 ### What to Skip
 
 ```
-DOGEUSDT  BULL  Score: 20  NO CONFLUENCE
+DOGEUSDT  BULL  Score: 20  Edge: 15  NOISE
+  ADX: 1H RANGING, 4H RANGING, D RANGING
+  Divergence: none detected across all pivot points
+  Volume: falling trend
+  Structure: no nearby swing levels
   1H: OVERSOLD
   4H: BEARISH
   D:  BULLISH
 ```
 
 - Only 1 TF oversold
-- 4H and 1H disagree on direction
-- No divergence to tip the scale
-- Skip — insufficient confluence
+- All TFs ranging (ADX < 25) — no directional conviction
+- No divergence across any pivot pair
+- Edge score 15 = NOISE — insufficient edge
+- Skip — wait for regime change or new divergence to form
 
 ---
 
