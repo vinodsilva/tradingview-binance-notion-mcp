@@ -1,6 +1,3 @@
-/**
- * Core UI automation logic.
- */
 import { evaluate, evaluateAsync, getClient } from '../connection.js';
 
 export async function click({ by, value }) {
@@ -10,15 +7,24 @@ export async function click({ by, value }) {
       var by = ${JSON.stringify(by)};
       var value = ${escaped};
       var el = null;
-      if (by === 'aria-label') el = document.querySelector('[aria-label="' + value.replace(/"/g, '\\\\"') + '"]');
-      else if (by === 'data-name') el = document.querySelector('[data-name="' + value.replace(/"/g, '\\\\"') + '"]');
+      if (by === 'aria-label') {
+        var all = document.querySelectorAll('[aria-label]');
+        for (var i = 0; i < all.length; i++) { if (all[i].getAttribute('aria-label') === value) { el = all[i]; break; } }
+      }
+      else if (by === 'data-name') {
+        var all = document.querySelectorAll('[data-name]');
+        for (var i = 0; i < all.length; i++) { if (all[i].getAttribute('data-name') === value) { el = all[i]; break; } }
+      }
       else if (by === 'text') {
         var candidates = document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="tab"]');
         for (var i = 0; i < candidates.length; i++) {
           var text = candidates[i].textContent.trim();
           if (text === value || text.toLowerCase() === value.toLowerCase()) { el = candidates[i]; break; }
         }
-      } else if (by === 'class-contains') el = document.querySelector('[class*="' + value.replace(/"/g, '\\\\"') + '"]');
+      } else if (by === 'class-contains') {
+        var all = document.querySelectorAll('[class]');
+        for (var i = 0; i < all.length; i++) { if (all[i].className.indexOf(value) !== -1) { el = all[i]; break; } }
+      }
       if (!el) return { found: false };
       el.click();
       return { found: true, tag: el.tagName.toLowerCase(), text: (el.textContent || '').trim().substring(0, 80), aria_label: el.getAttribute('aria-label') || null, data_name: el.getAttribute('data-name') || null };
@@ -140,7 +146,6 @@ export async function layoutSwitch({ name }) {
   `);
   if (!result?.success) throw new Error(result?.error || 'Unknown error switching layout');
 
-  // Handle "unsaved changes" confirmation dialog
   await new Promise(r => setTimeout(r, 500));
   const dismissed = await evaluate(`
     (function() {
@@ -197,14 +202,24 @@ export async function hover({ by, value }) {
       var value = ${JSON.stringify(value)};
       var el = null;
       if (by === 'aria-label') {
-        el = document.querySelector('[aria-label="' + value.replace(/"/g, '\\\\"') + '"]');
-        if (!el) el = document.querySelector('[aria-label*="' + value.replace(/"/g, '\\\\"') + '"]');
+        var all = document.querySelectorAll('[aria-label]');
+        for (var i = 0; i < all.length; i++) { if (all[i].getAttribute('aria-label') === value) { el = all[i]; break; } }
+        if (!el) {
+          var all = document.querySelectorAll('[aria-label]');
+          for (var i = 0; i < all.length; i++) { if (all[i].getAttribute('aria-label').indexOf(value) !== -1) { el = all[i]; break; } }
+        }
       }
-      else if (by === 'data-name') el = document.querySelector('[data-name="' + value.replace(/"/g, '\\\\"') + '"]');
+      else if (by === 'data-name') {
+        var all = document.querySelectorAll('[data-name]');
+        for (var i = 0; i < all.length; i++) { if (all[i].getAttribute('data-name') === value) { el = all[i]; break; } }
+      }
       else if (by === 'text') {
         var candidates = document.querySelectorAll('button, a, [role="button"], [role="menuitem"], [role="tab"], span, div');
         for (var i = 0; i < candidates.length; i++) { var text = candidates[i].textContent.trim(); if (text === value || text.toLowerCase() === value.toLowerCase()) { el = candidates[i]; break; } }
-      } else if (by === 'class-contains') el = document.querySelector('[class*="' + value.replace(/"/g, '\\\\"') + '"]');
+      } else if (by === 'class-contains') {
+        var all = document.querySelectorAll('[class]');
+        for (var i = 0; i < all.length; i++) { if (all[i].className.indexOf(value) !== -1) { el = all[i]; break; } }
+      }
       if (!el) return null;
       var rect = el.getBoundingClientRect();
       return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, tag: el.tagName.toLowerCase() };
@@ -263,7 +278,9 @@ export async function findElement({ query, strategy }) {
           results.push({ tag: els[i].tagName.toLowerCase(), text: (els[i].textContent || '').trim().substring(0, 80), aria_label: els[i].getAttribute('aria-label') || null, data_name: els[i].getAttribute('data-name') || null, x: rect.x, y: rect.y, width: rect.width, height: rect.height, visible: els[i].offsetParent !== null });
         }
       } else if (strategy === 'aria-label') {
-        var els = document.querySelectorAll('[aria-label*="' + query.replace(/"/g, '\\\\"') + '"]');
+        var all = document.querySelectorAll('[aria-label]');
+        var els = [];
+        for (var i = 0; i < all.length; i++) { if (all[i].getAttribute('aria-label').indexOf(query) !== -1) els.push(all[i]); }
         for (var i = 0; i < Math.min(els.length, 20); i++) {
           var rect = els[i].getBoundingClientRect();
           results.push({ tag: els[i].tagName.toLowerCase(), text: (els[i].textContent || '').trim().substring(0, 80), aria_label: els[i].getAttribute('aria-label') || null, data_name: els[i].getAttribute('data-name') || null, x: rect.x, y: rect.y, width: rect.width, height: rect.height, visible: els[i].offsetParent !== null });

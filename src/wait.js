@@ -17,12 +17,21 @@ export async function waitForChartReady(expectedSymbol = null, expectedTf = null
           || document.querySelector('[data-name="loading"]');
         var isLoading = spinner && spinner.offsetParent !== null;
 
-        // Try to get bar count from data window or chart
+        // Try to get bar count from chart data model
         var barCount = -1;
         try {
-          var bars = document.querySelectorAll('[class*="bar"]');
-          barCount = bars.length;
-        } catch {}
+          var wv = window.TradingViewApi && window.TradingViewApi._activeChartWidgetWV;
+          if (wv) {
+            var cw = wv.value();
+            if (cw) {
+              var m = cw._chartWidget && cw._chartWidget.model && cw._chartWidget.model();
+              if (m) {
+                var bars = m.mainSeries().bars();
+                barCount = bars.lastIndex !== undefined ? (bars.lastIndex() + 1) : -1;
+              }
+            }
+          }
+        } catch (e) {}
 
         // Get current symbol from header
         var symbolEl = document.querySelector('[data-name="legend-source-title"]')

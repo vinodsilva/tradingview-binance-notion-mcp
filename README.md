@@ -197,7 +197,7 @@ Practice trade on historical data:
 | Tool | Description |
 |------|-------------|
 | `ui_click` | Click by aria-label, text, or CSS |
-| `ui_open_panel` | Open/close pine-editor, strategy-tester, watchlist, alerts, trading, replay |
+| `ui_open_panel` | Open/close pine-editor, strategy-tester, watchlist, alerts, trading |
 | `ui_fullscreen` | Toggle fullscreen |
 | `ui_keyboard` | Press keys or shortcuts (Enter, Ctrl+Z, etc.) |
 | `ui_type_text` | Type into the focused element |
@@ -218,6 +218,7 @@ Practice trade on historical data:
 ### Coin Scanner
 | Tool | Description |
 |------|-------------|
+| `coin_scan_stochrsi` | 3-TF StochRSI scan — overbought/oversold + hidden divergence (1H, 4H, D) |
 | `coin_scan` | Markov chain momentum scan — rank crypto by entropy + HTF alignment |
 
 ### Telegram
@@ -291,7 +292,7 @@ The project ships with ready-made trading agents — role definitions that, when
 | Agent | Trigger | What it does |
 |-------|---------|-------------|
 | **chart-analyst** | "Act as **chart-analyst** on ES1!" | 10-stage institutional pipeline: setup → volume → S/D → structure → fib → momentum → confluence → sizing → execution → report |
-| **coin-scout** | "Act as **coin-scout**" | Markov chain MTF momentum scanner — screen top Binance coins, rank by entropy |
+| **coin-scout** | "Act as **coin-scout**" | 3-TF StochRSI + Markov chain scanner — screen top Binance coins for momentum + divergence |
 | **market-scanner** | "Act as **market-scanner**" | Iterative multi-market scan — cycles crypto → futures → stocks until grade A/B found |
 | **performance-analyst** | "Act as **performance-analyst**" | Strategy backtest analysis — metrics, trade list, equity curve, recommendations |
 | **replay-coach** | "Act as **replay-coach**" | Guide practice trading in replay: step bars, take trades, track P&L |

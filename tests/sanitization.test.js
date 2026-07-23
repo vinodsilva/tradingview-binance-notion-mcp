@@ -323,6 +323,6 @@ describe('path traversal prevention', () => {
 
   it('batch.js strips path separators from filename', () => {
     const source = readFileSync(new URL('../src/core/batch.js', import.meta.url), 'utf8');
-    assert.ok(source.includes(".replace(/[\\/\\\\]/g, '_')"));
+    assert.ok(source.includes('.replace(/[/\\\\]/g, ' + "'" + '_' + "'" + ')'));
   });
 });
